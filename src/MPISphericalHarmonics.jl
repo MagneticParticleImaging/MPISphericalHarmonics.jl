@@ -7,8 +7,6 @@ using Unitful
 using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
-
-
 mutable struct MagneticFieldCoefficients
   coeffs::Array{SphericalHarmonicCoefficients,2}
   radius::Float64

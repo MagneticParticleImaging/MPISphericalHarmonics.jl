@@ -55,9 +55,9 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter
-            using MPIMagneticFields
-            DocMeta.setdocmeta!(MPIMagneticFields, :DocTestSetup, :(using MPIMagneticFields); recursive=true)
-            doctest(MPIMagneticFields, manual=false)'
+            using MPISphericalHarmonics
+            DocMeta.setdocmeta!(MPISphericalHarmonics, :DocTestSetup, :(using MPISphericalHarmonics); recursive=true)
+            doctest(MPISphericalHarmonics, manual=false)'
       - run: julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
