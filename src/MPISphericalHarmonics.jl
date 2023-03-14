@@ -8,11 +8,14 @@ using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
 
+export MagneticFieldCoefficients
+
+# Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
-  coeffs::Array{SphericalHarmonicCoefficients,2}
-  radius::Float64
-  center::Vector{Float64}
-  ffp::Union{Array{Float64,2},Nothing}
+  coeffs::Array{SphericalHarmonicCoefficients,2} # coefficients
+  radius::Float64 # radius of measured sphere
+  center::Vector{Float64} # center of measured sphere
+  ffp::Union{Array{Float64,2},Nothing} # field-free-point (if available)
 
   function MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, radius::Float64,
   				     center::Vector{Float64}, ffp::Union{Array{Float64,2},Nothing})
@@ -94,7 +97,7 @@ end
 """
 function magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2},AbstractArray{T,3}}, 
 		       x::Variable, y::Variable, z::Variable;
-		       L::Int=Int(floor(tDesign.T/2)),
+		       L::Int=floor(Int,tDesign.T/2),
 		       calcSolid::Bool=true) where T <: Real
 
   # get tDesign positions [m] and removing the unit
