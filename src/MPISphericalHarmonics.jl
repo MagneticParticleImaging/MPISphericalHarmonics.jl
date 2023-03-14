@@ -115,13 +115,11 @@ function magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2
 		       x, y, z,
 		       calcSolid)
 end
-  
 
-
-function magneticField(coords::AbstractArray{T,2}, field::Union{AbstractArray{T,2},AbstractArray{T,3}}, 
-		       R::T, center::Vector{T}, L::Int,
-		       x::Variable, y::Variable, z::Variable, 
-		       calcSolid::Bool=true) where T <: Real
+function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T, 2}, AbstractArray{T, 3}}, 
+                       R::T, center::Vector{T}, L::Int,
+                       x::Variable, y::Variable, z::Variable, 
+                       calcSolid::Bool=true) where T <: Real
 
   # transpose coords if its dimensions do not fit
   if size(coords,1) != 3
@@ -145,20 +143,19 @@ function magneticField(coords::AbstractArray{T,2}, field::Union{AbstractArray{T,
   for c in axes(field,3)
     # calculation of the coefficients
     for j in axes(field,1)
+      coeffs[j,c] = SphericalHarmonicExpansions.sphericalQuadrature(field[j,:,c],coords',L);
+      coeffs[j,c].R = R
 
-        coeffs[j,c] = SphericalHarmonicExpansions.sphericalQuadrature(field[j,:,c],coords',L);
-        coeffs[j,c].R = R
+      normalize!(coeffs[j,c],R)
 
-        normalize!(coeffs[j,c],R)
+      # convert spherical into solid coefficients
+      if calcSolid
+          solid!(coeffs[j,c])
+      end
 
-	# convert spherical into solid coefficients
-        if calcSolid
-            solid!(coeffs[j,c])
-        end
-
-        # calculation of the expansion
-        expansion[j,c] = sphericalHarmonicsExpansion(coeffs[j,c],x,y,z) + 0*x;
-        func[j,c] = @fastfunc expansion[j,c]+0*x+0*y+0*z
+      # calculation of the expansion
+      expansion[j,c] = sphericalHarmonicsExpansion(coeffs[j,c],x,y,z) + 0*x;
+      func[j,c] = @fastfunc expansion[j,c]+0*x+0*y+0*z
     end
   end
 
@@ -190,25 +187,23 @@ function loadTDesign(filename::String)
   return coeffs_MF, expansion, func
 end
 
-
-Base.@kwdef mutable struct SphericalHarmonicDefinedField <: AbstractMagneticField
+export SphericalHarmonicsDefinedField
+Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticField
   func::Array{Function, 2}
   patch::Integer = 1
 end
 
-function SphericalHarmonicDefinedField(filename::String)
+function SphericalHarmonicsDefinedField(filename::String)
   coeffs_MF, expansion, func = loadTDesign(filename)
-  return SphericalHarmonicDefinedField(func=func)
+  return SphericalHarmonicsDefinedField(func=func)
 end
 
-MPIMagneticFields.fieldType(::SphericalHarmonicDefinedField) = OtherField()
-MPIMagneticFields.definitionType(::SphericalHarmonicDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
-MPIMagneticFields.timeDependencyType(::SphericalHarmonicDefinedField) = TimeConstant()
+MPIMagneticFields.fieldType(::SphericalHarmonicsDefinedField) = OtherField()
+MPIMagneticFields.definitionType(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
+MPIMagneticFields.timeDependencyType(::SphericalHarmonicsDefinedField) = TimeConstant()
 
-# TODO: Maybe use StaticArrays here
-MPIMagneticFields.value(field::SphericalHarmonicDefinedField, r::Vector{T}) where T <: Number = [field.func[i, field.patch].(r...) for i=1:3]
-MPIMagneticFields.value(field::SphericalHarmonicDefinedField, r) = [MPIMagneticFields.value(field, [x, y, z]) for x in r[1], y in r[2], z in r[3]]
+MPIMagneticFields.value(field::SphericalHarmonicsDefinedField, r::PT) where {T <: Number, PT <: AbstractVector{T}} = [field.func[i, field.patch].(r...) for i=1:3]
 
-selectPatch(field::SphericalHarmonicDefinedField, patchNum) = field.patch = patchNum
+selectPatch(field::SphericalHarmonicsDefinedField, patchNum) = field.patch = patchNum
 
 end
