@@ -194,9 +194,21 @@ Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticFie
 end
 
 function SphericalHarmonicsDefinedField(filename::String)
-  coeffs_MF, expansion, func = loadTDesign(filename)
+
+  file = h5open(filename,"r")
+
+  if haskey(file,"coeffs") 
+    # load coefficients
+    coeffs_MF = MagneticFieldCoefficients(filename)
+    func = fastfunc.(coeffs_MF.coeffs)
+  else
+    # load measured field
+    coeffs_MF, expansion, func = loadTDesign(filename)
+  end
+
   return SphericalHarmonicsDefinedField(func=func)
 end
+
 
 MPIMagneticFields.fieldType(::SphericalHarmonicsDefinedField) = OtherField()
 MPIMagneticFields.definitionType(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
