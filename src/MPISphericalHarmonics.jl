@@ -47,6 +47,10 @@ function MagneticFieldCoefficients(L::Int)
   end
   return MagneticFieldCoefficients(reshape([SphericalHarmonicCoefficients(L),SphericalHarmonicCoefficients(L),SphericalHarmonicCoefficients(L)],3,1))
 end
+
+# constructor using t-design
+MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, tDesign::SphericalTDesign, ffp=nothing) = MagneticFieldCoefficients(coeffs,ustrip(Unitful.m(tDesign.radius)), ustrip.(Unitful.m.(tDesign.center)), ffp)
+  
   
 # read coefficients from an HDF5-file
 function MagneticFieldCoefficients(path::String)
@@ -69,8 +73,8 @@ function MagneticFieldCoefficients(path::String)
   else
     # convert file of SphericalHarmonicCoefficients into MagneticFieldCoefficients
     # -> set all additional informations to 0 or nothing
-    # use radius = 0.042 as default value
-    return MagneticFieldCoefficients(shcoeffs, 0.042)
+    # use radius = 0.01 as default value
+    return MagneticFieldCoefficients(shcoeffs, 0.01)
   end
 end
 
@@ -163,7 +167,7 @@ function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T
 end
 
 #TODO: This should be merged with and moved to MPIFiles
-function loadTDesign(filename::String)
+function loadTDesignCoefficients(filename::String)
   field, radius, N, t, center, correction  = h5open(filename, "r") do file
     field = read(file,"/fields") 		# measured field (size: 3 x #points x #patches)
     radius = read(file,"/positions/tDesign/radius")	# radius of the measured ball
@@ -203,7 +207,7 @@ function SphericalHarmonicsDefinedField(filename::String)
     func = fastfunc.(coeffs_MF.coeffs)
   else
     # load measured field
-    coeffs_MF, expansion, func = loadTDesign(filename)
+    coeffs_MF, expansion, func = loadTDesignCoefficients(filename)
   end
 
   return SphericalHarmonicsDefinedField(func=func)
