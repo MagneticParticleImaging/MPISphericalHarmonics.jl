@@ -73,6 +73,12 @@ using Aqua
       @test size(coeffsMF.coeffs) == (3,1)
       [@test coeffsMF.coeffs[j,1].L == L for j=1:3]
 
+      coeffsMF = MagneticFieldCoefficients(coeffs,0.042,zeros(3,1))
+      @test coeffsMF.coeffs == coeffs
+      @test coeffsMF.radius == 0.042
+      @test coeffsMF.center == zeros(Float64,3)
+      @test coeffsMF.ffp == zeros(3,1)
+
       # constructor with t-design
       coeffsMF = MagneticFieldCoefficients(coeffs, tDes, zeros(Float64,3,1))
       @test coeffsMF.radius == 0.042
