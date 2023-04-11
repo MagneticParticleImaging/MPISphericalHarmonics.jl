@@ -1,6 +1,7 @@
 using MPISphericalHarmonics
 using MPIMagneticFields
 using MPIFiles 
+using SphericalHarmonicExpansions
 using Test
 using Aqua
 
@@ -34,6 +35,25 @@ using Aqua
       @test isapprox(coeffs[j,1].c, ideal[j], atol = 1e-10)
     end
 
+    @testset "magneticField" begin
+      # further tests for function magneticField()
+      coords = Float64.(ustrip.(Unitful.m.(hcat([p for p in tDes]...))))
+      R = Float64(ustrip(Unitful.m(tDes.radius)))
+      center = Float64.(ustrip.(Unitful.m.(tDes.center)))
+      L = floor(Int,tDes.T/2)
+  
+      # transposed positions
+      coeffsTest, = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L, x, y, z)
+      for j=1:3
+        @test isapprox(coeffs[j,1].c, coeffsTest[j,1].c, atol = 1e-10)
+      end
+
+      # Errors
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L, x, y, z) # >3 field values in the first dimension 
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L, x, y, z) # number of field values != number of measured positions
+    end
+
+
     @testset "MagneticFieldCoefficients" begin
 
       ## Test Constructor
@@ -47,6 +67,11 @@ using Aqua
       @test coeffsMF.radius == 0.0
       @test coeffsMF.center == zeros(Float64,3)
       @test coeffsMF.ffp === nothing
+
+      L = 1
+      coeffsMF = MagneticFieldCoefficients(L)
+      @test size(coeffsMF.coeffs) == (3,1)
+      [@test coeffsMF.coeffs[j,1].L == L for j=1:3]
 
       # constructor with t-design
       coeffsMF = MagneticFieldCoefficients(coeffs, tDes, zeros(Float64,3,1))
@@ -64,8 +89,13 @@ using Aqua
 
       ## measurement data (without coefficients)
       filename = "idealGradientField.h5"
-      func = SphericalHarmonicsDefinedField(filename)
-      @test isapprox(func[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
+      field = SphericalHarmonicsDefinedField(filename)
+      @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
+
+      # Test field types
+      @test fieldType(field) isa OtherField
+      @test definitionType(field) isa SphericalHarmonicsDataBasedFieldDefinition
+      @test timeDependencyType(field) isa TimeConstant
 
       # get coefficients
       coeffsMF, = MPISphericalHarmonics.loadTDesignCoefficients(filename)
@@ -76,10 +106,9 @@ using Aqua
 
       ## load coefficients from file
       # write coefficients in file
-      filename2 = "idealGradientFieldwithCoeffs.h5"
-      filename3 = "idealGradientFieldwithCoeffs2.h5"
-      filename4 = "idealGradientFieldwithCoeffs3.h5"
-      cp(filename, filename2)
+      filename2 = "Coeffs.h5"
+      filename3 = "Coeffs2.h5"
+      filename4 = "Coeffs3.h5"
       write(filename2, coeffsMF.coeffs)
       # add radius and center
       cp(filename2, filename3)
@@ -106,6 +135,8 @@ using Aqua
       # with given FFP
       coeffsTest = MagneticFieldCoefficients(filename4)
       @test coeffsTest.ffp == zeros(3,1) # FFP
+      field = SphericalHarmonicsDefinedField(filename4)
+      @test isapprox(field[-0.02,0.02,-0.03], [0.02,-0.02,-0.06], atol=ε)
 
       # remove test files
       rm(filename2)
@@ -114,7 +145,26 @@ using Aqua
     end
 
     @testset "Multiple patches" begin
-      #TODO
+      ## Multi-patch setting: Second field with offset
+      coeffsPatch = hcat(deepcopy(coeffs),deepcopy(coeffs)) # two patches
+      for j=1:3 coeffsPatch[j,2][0,0] = 0.01 end # set offset
+      field = SphericalHarmonicsDefinedField(func = fastfunc.(coeffsPatch))
+
+      ## Test FFPs (for both patches)
+      # First patch
+      @test field.patch == 1
+      ffp = zeros(3)
+      @test isapprox(field[ffp...], zeros(3), atol=1e-10)
+
+      # Second patch
+      selectPatch(field,2)   
+      @test field.patch == 2
+      # test offset in (0,0,0)
+      offset = ones(3) .* 0.01
+      @test isapprox(field[0,0,0], offset, atol=1e-10)
+      # test FFP
+      ffp = [0.01, 0.01, -0.005]
+      @test isapprox(field[ffp...], zeros(3), atol=1e-10)
     end
   end
 

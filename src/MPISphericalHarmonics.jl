@@ -9,6 +9,7 @@ using SphericalHarmonicExpansions
 using MPIFiles
 
 export MagneticFieldCoefficients
+export selectPatch
 
 # Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
