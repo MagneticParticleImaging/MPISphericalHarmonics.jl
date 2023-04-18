@@ -90,18 +90,13 @@ using Aqua
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3,2))
     end
 
-    @testset "Load data from file" begin
+    @testset "Load/write data from/to file" begin
       ɛ = eps(Float64)
 
       ## measurement data (without coefficients)
       filename = "idealGradientField.h5"
       field = SphericalHarmonicsDefinedField(filename)
       @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
-
-      # Test field types
-      @test fieldType(field) isa OtherField
-      @test definitionType(field) isa SphericalHarmonicsDataBasedFieldDefinition
-      @test timeDependencyType(field) isa TimeConstant
 
       # get coefficients
       coeffsMF, = MPISphericalHarmonics.loadTDesignCoefficients(filename)
@@ -115,6 +110,7 @@ using Aqua
       filename2 = "Coeffs.h5"
       filename3 = "Coeffs2.h5"
       filename4 = "Coeffs3.h5"
+      filenameW = "CoeffsW.h5"
       write(filename2, coeffsMF.coeffs)
       # add radius and center
       cp(filename2, filename3)
@@ -144,17 +140,30 @@ using Aqua
       field = SphericalHarmonicsDefinedField(filename4)
       @test isapprox(field[-0.02,0.02,-0.03], [0.02,-0.02,-0.06], atol=ε)
 
+      # test write
+      MPISphericalHarmonics.write(filenameW, coeffsTest)
+      coeffsW = MagneticFieldCoefficients(filenameW)
+      @test isapprox(coeffsW.radius, 0.042, atol=ε) # radius
+      @test isapprox(coeffsW.center, zeros(3), atol=ε) # center
+      @test coeffsW.ffp == zeros(3,1) # FFP
+
       # remove test files
       rm(filename2)
       rm(filename3)
       rm(filename4)
+      rm(filenameW)
     end
 
-    @testset "Multiple patches" begin
+    @testset "SphericalHarmonicsDefinedField (multiple patches)" begin
       ## Multi-patch setting: Second field with offset
       coeffsPatch = hcat(deepcopy(coeffs),deepcopy(coeffs)) # two patches
       for j=1:3 coeffsPatch[j,2][0,0] = 0.01 end # set offset
-      field = SphericalHarmonicsDefinedField(func = fastfunc.(coeffsPatch))
+      field = SphericalHarmonicsDefinedField(coeffsPatch) # test constructor on coefficients
+
+      # Test field types
+      @test fieldType(field) isa OtherField
+      @test definitionType(field) isa SphericalHarmonicsDataBasedFieldDefinition
+      @test timeDependencyType(field) isa TimeConstant
 
       ## Test FFPs (for both patches)
       # First patch

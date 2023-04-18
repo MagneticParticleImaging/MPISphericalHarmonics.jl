@@ -8,6 +8,8 @@ using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
 
+import Base.write
+
 export MagneticFieldCoefficients
 export selectPatch
 
@@ -80,6 +82,26 @@ function MagneticFieldCoefficients(path::String)
   end
 
   return coeffsMF
+end
+
+# write coefficients to an HDF5-file
+function write(path::String, coeffs::MagneticFieldCoefficients)
+
+  # save SphericalHarmonicCoefficients
+  write(path,coeffs.coeffs)
+  
+  # add field informations
+  radius = coeffs.radius
+  center = coeffs.center
+  ffp = coeffs.ffp
+
+  h5open(path,"cw") do file
+      write(file, "/radius", radius)
+      write(file, "/center", center)
+      if ffp !== nothing
+        write(file, "/ffp", ffp)
+      end
+  end
 end
 
 """
@@ -195,6 +217,7 @@ function loadTDesignCoefficients(filename::String)
   return coeffs_MF, expansion, func
 end
 
+## SphericalHarmonicsDefinedField ##
 export SphericalHarmonicsDefinedField
 Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticField
   func::Array{Function, 2}
@@ -219,6 +242,9 @@ function SphericalHarmonicsDefinedField(filename::String)
   return SphericalHarmonicsDefinedField(func=func)
 end
 
+# constructors for coefficients
+SphericalHarmonicsDefinedField(coeffs::Array{SphericalHarmonicCoefficients}) = SphericalHarmonicsDefinedField(func = fastfunc.(coeffs))
+SphericalHarmonicsDefinedField(coeffs_MF::MagneticFieldCoefficients) = SphericalHarmonicsDefinedField(coeffs_MF.coeffs)
 
 MPIMagneticFields.fieldType(::SphericalHarmonicsDefinedField) = OtherField()
 MPIMagneticFields.definitionType(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
