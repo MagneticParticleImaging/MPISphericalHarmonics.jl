@@ -7,7 +7,7 @@ using Aqua
 
 @testset "MPISphericalHarmonics.jl" begin
   @testset "Aqua" begin
-    Aqua.test_all(MPISphericalHarmonics, ambiguities=false)
+    Aqua.test_all(MPISphericalHarmonics)
   end
 
  
