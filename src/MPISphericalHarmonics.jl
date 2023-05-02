@@ -8,10 +8,10 @@ using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
 
-import Base.write
+import Base.write, Base.length
 
 export MagneticFieldCoefficients
-export selectPatch
+export selectPatch, length
 
 # Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
@@ -250,8 +250,18 @@ MPIMagneticFields.fieldType(::SphericalHarmonicsDefinedField) = OtherField()
 MPIMagneticFields.definitionType(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
 MPIMagneticFields.timeDependencyType(::SphericalHarmonicsDefinedField) = TimeConstant()
 
+# get field values
 MPIMagneticFields.value(field::SphericalHarmonicsDefinedField, r::PT) where {T <: Number, PT <: AbstractVector{T}} = [field.func[i, field.patch].(r...) for i=1:3]
 
-selectPatch(field::SphericalHarmonicsDefinedField, patchNum) = field.patch = patchNum
+# patches
+length(field::SphericalHarmonicsDefinedField) = size(field.func,2) # get number of patches
+function selectPatch(field::SphericalHarmonicsDefinedField, patchNum::Int) 
+  if 1 <= patchNum <= length(field) # test if patch exists
+    field.patch = patchNum
+  else
+    throw(DimensionMismatch("The field contains only $(length(field)) patches."))
+  end
+end
+
 
 end

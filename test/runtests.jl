@@ -158,12 +158,16 @@ using Aqua
       ## Multi-patch setting: Second field with offset
       coeffsPatch = hcat(deepcopy(coeffs),deepcopy(coeffs)) # two patches
       for j=1:3 coeffsPatch[j,2][0,0] = 0.01 end # set offset
-      field = SphericalHarmonicsDefinedField(coeffsPatch) # test constructor on coefficients
+      coeffsPatch_MF = MagneticFieldCoefficients(coeffsPatch) # create MagneticFieldCoefficients
+      field = SphericalHarmonicsDefinedField(coeffsPatch_MF) # test constructor on coefficients
 
       # Test field types
       @test fieldType(field) isa OtherField
       @test definitionType(field) isa SphericalHarmonicsDataBasedFieldDefinition
       @test timeDependencyType(field) isa TimeConstant
+
+      # Test number of patches
+      @test length(field) == 2
 
       ## Test FFPs (for both patches)
       # First patch
@@ -180,6 +184,9 @@ using Aqua
       # test FFP
       ffp = [0.01, 0.01, -0.005]
       @test isapprox(field[ffp...], zeros(3), atol=1e-10)
+
+      # Test wrong patch number
+      @test_throws DimensionMismatch selectPatch(field,3)
     end
   end
 
