@@ -15,9 +15,9 @@ using Aqua
 
     ## Calculate some field values
     # load a spherical t-design
-    tDes = loadTDesign(6,26,42.0u"mm")
+    tDes = loadTDesign(6, 26, 42.0u"mm")
     # ideal gradient field with FFP
-    idealField = IdealFFP([-1,-1,2])
+    idealField = IdealFFP([-1, -1, 2])
     # get field values
     fieldValues = hcat([idealField[ustrip.(Unitful.m.(pos))...] for pos in tDes]...)
 
@@ -146,6 +146,8 @@ using Aqua
       @test isapprox(coeffsW.radius, 0.042, atol=ε) # radius
       @test isapprox(coeffsW.center, zeros(3), atol=ε) # center
       @test coeffsW.ffp == zeros(3,1) # FFP
+      coeffsW = nothing # This maybe masks an implementation error
+      GC.gc()
 
       # remove test files
       rm(filename2)
@@ -162,9 +164,9 @@ using Aqua
       field = SphericalHarmonicsDefinedField(coeffsPatch_MF) # test constructor on coefficients
 
       # Test field types
-      @test fieldType(field) isa OtherField
-      @test definitionType(field) isa SphericalHarmonicsDataBasedFieldDefinition
-      @test timeDependencyType(field) isa TimeConstant
+      @test FieldStyle(field) isa OtherField
+      @test FieldDefinitionStyle(field) isa SphericalHarmonicsDataBasedFieldDefinition
+      @test FieldTimeDependencyStyle(field) isa TimeConstant
 
       # Test number of patches
       @test length(field) == 2
@@ -178,9 +180,9 @@ using Aqua
       # Second patch
       selectPatch(field,2)   
       @test field.patch == 2
-      # test offset in (0,0,0)
+      # test offset in (0, 0, 0)
       offset = ones(3) .* 0.01
-      @test isapprox(field[0,0,0], offset, atol=1e-10)
+      @test isapprox(field[0, 0, 0], offset, atol=1e-10)
       # test FFP
       ffp = [0.01, 0.01, -0.005]
       @test isapprox(field[ffp...], zeros(3), atol=1e-10)

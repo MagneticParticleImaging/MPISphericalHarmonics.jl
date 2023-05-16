@@ -1,7 +1,7 @@
 name = "MPISphericalHarmonics"
 uuid = "2527f7a4-0af4-4016-a944-036fbac19de9"
 authors = ["Marija Boberg <m.boberg@uke.de> and contributors"]
-version = "0.0.4"
+version = "0.0.5"
 
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -14,7 +14,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 [compat]
 DocStringExtensions = "0.8, 0.9"
 MPIFiles = "0.12"
-MPIMagneticFields = "0.0.2, 0.0.3"
+MPIMagneticFields = "0.0.4"
 SphericalHarmonicExpansions = "0.1"
 Unitful = "1.11, 1.12"
 julia = "1"

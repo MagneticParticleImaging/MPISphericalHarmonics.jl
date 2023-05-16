@@ -246,12 +246,12 @@ end
 SphericalHarmonicsDefinedField(coeffs::Array{SphericalHarmonicCoefficients}) = SphericalHarmonicsDefinedField(func = fastfunc.(coeffs))
 SphericalHarmonicsDefinedField(coeffs_MF::MagneticFieldCoefficients) = SphericalHarmonicsDefinedField(coeffs_MF.coeffs)
 
-MPIMagneticFields.fieldType(::SphericalHarmonicsDefinedField) = OtherField()
-MPIMagneticFields.definitionType(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
-MPIMagneticFields.timeDependencyType(::SphericalHarmonicsDefinedField) = TimeConstant()
+MPIMagneticFields.FieldStyle(::SphericalHarmonicsDefinedField) = OtherField()
+MPIMagneticFields.FieldDefinitionStyle(::SphericalHarmonicsDefinedField) = SphericalHarmonicsDataBasedFieldDefinition()
+MPIMagneticFields.FieldTimeDependencyStyle(::SphericalHarmonicsDefinedField) = TimeConstant()
 
 # get field values
-MPIMagneticFields.value(field::SphericalHarmonicsDefinedField, r::PT) where {T <: Number, PT <: AbstractVector{T}} = [field.func[i, field.patch].(r...) for i=1:3]
+MPIMagneticFields.value_(field::SphericalHarmonicsDefinedField, r) = [field.func[i, field.patch].(r...) for i=1:3]
 
 # patches
 length(field::SphericalHarmonicsDefinedField) = size(field.func,2) # get number of patches
