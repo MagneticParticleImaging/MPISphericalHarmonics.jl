@@ -205,22 +205,20 @@ function loadTDesignCoefficients(filename::String)
   end
   @polyvar x y z
   tDes = MPIFiles.loadTDesign(Int(t),N,radius*u"m", center.*u"m")
-  coeffs, expansion, func = magneticField(tDes, field, x,y,z)
+  coeffs, = magneticField(tDes, field, x,y,z)
   for c=1:size(coeffs,2), j = 1:3
     coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
-    expansion[j, c] = sphericalHarmonicsExpansion(coeffs[j, c], x, y, z);
-    func[j, c] = @fastfunc expansion[j, c]
   end
 
   coeffs_MF = MagneticFieldCoefficients(coeffs, radius, center)
 
-  return coeffs_MF, expansion, func
+  return coeffs_MF
 end
 
 ## SphericalHarmonicsDefinedField ##
 export SphericalHarmonicsDefinedField
 Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticField
-  func::Array{Function, 2}
+  func::Array{SphericalHarmonicExpansions.StaticPolynomials.Polynomial, 2}
   patch::Integer = 1
 end
 
@@ -230,13 +228,12 @@ function SphericalHarmonicsDefinedField(filename::String)
     if haskey(file,"coeffs") 
       # load coefficients
       coeffs_MF = MagneticFieldCoefficients(filename)
-      func = fastfunc.(coeffs_MF.coeffs)
     else
       # load measured field
-      coeffs_MF, expansion, func = loadTDesignCoefficients(filename)
+      coeffs_MF = loadTDesignCoefficients(filename)
     end
 
-    return func
+    return fastfunc.(coeffs_MF.coeffs)
   end
 
   return SphericalHarmonicsDefinedField(func=func)
@@ -251,7 +248,7 @@ MPIMagneticFields.FieldDefinitionStyle(::SphericalHarmonicsDefinedField) = Spher
 MPIMagneticFields.FieldTimeDependencyStyle(::SphericalHarmonicsDefinedField) = TimeConstant()
 
 # get field values
-MPIMagneticFields.value_(field::SphericalHarmonicsDefinedField, r) = [field.func[i, field.patch].(r...) for i=1:3]
+MPIMagneticFields.value_(field::SphericalHarmonicsDefinedField, r) = [field.func[i, field.patch](r) for i=1:3]
 
 # patches
 length(field::SphericalHarmonicsDefinedField) = size(field.func,2) # get number of patches

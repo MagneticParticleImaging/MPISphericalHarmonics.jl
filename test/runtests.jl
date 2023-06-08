@@ -99,7 +99,7 @@ using Aqua
       @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
 
       # get coefficients
-      coeffsMF, = MPISphericalHarmonics.loadTDesignCoefficients(filename)
+      coeffsMF = MPISphericalHarmonics.loadTDesignCoefficients(filename)
       @test isapprox(coeffsMF.radius, 0.042, atol=ε) # radius
       @test isapprox(coeffsMF.coeffs[1][1,1], -1.0, atol=1e-10) # gradient (x)
       @test isapprox(coeffsMF.coeffs[2][1,-1], -1.0, atol=1e-10) # gradient (y)
