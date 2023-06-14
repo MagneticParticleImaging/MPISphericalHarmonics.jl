@@ -88,6 +88,50 @@ using Aqua
       # constructor with wrong FFP sizes
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(2,1))
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3,2))
+
+      # test size
+      @test size(coeffsMF) == (3,1)
+    end
+
+    @testset "MagneticFieldCoefficient operations" begin
+      # coefficients for the tests
+      shc0 = fill(SphericalHarmonicCoefficients(zeros(4)), (3,1))
+      shc1 = fill(SphericalHarmonicCoefficients(ones(4)), (3,1))
+      shc2 = 2 .* shc1
+      c0 = MagneticFieldCoefficients(shc0,0.042,zeros(3)) 
+      c1 = MagneticFieldCoefficients(shc1,0.042,zeros(3)) 
+      c2 = MagneticFieldCoefficients(shc2,0.042,zeros(3)) 
+      c1R = MagneticFieldCoefficients(shc1,0.01,zeros(3)) # different radius
+      c1C = MagneticFieldCoefficients(shc1,0.042,ones(3)) # different center
+      c1F = MagneticFieldCoefficients(shc1,0.042,zeros(3),zeros(3,1)) # FFP 1
+      c1F2 = MagneticFieldCoefficients(shc1,0.042,zeros(3),ones(3,1)) # FFP 2
+
+      # isapprox 
+      @test !isapprox(c1, c2) # wrong coefficients
+      @test !isapprox(c1, c1R) # wrong radius
+      @test !isapprox(c1, c1C) # wrong center
+      @test !isapprox(c1, c1F) # one FFP
+      @test !isapprox(c1F, c1F2) # wrong FFP
+
+      # addition/subtraction # @test_throws DomainError mfc1+mfc2
+      @test_throws DomainError c1 + c1R # DomainError radius
+      @test_throws DomainError c2 - c1R # DomainError radius
+      @test_throws DomainError c1 + c1C # DomainError center
+      @test_throws DomainError c2 - c1C # DomainError center
+      @test isapprox(+(c1,c1R,force=true), c2) # force = true 
+      @test isapprox(-(c2,c1R,force=true), c1) # force = true 
+      @test isapprox(c1 + c1, c2) # correct
+      @test isapprox(c2 - c1, c1) # correct
+
+      # operations MFC and value
+      @test isapprox(1 + c1, c2)
+      @test isapprox(c0 + 2, c2)
+      @test isapprox(1 - c1, c0)
+      @test isapprox(c2 - 2, c0)
+      @test isapprox(0 * c1, c0)
+      @test isapprox(c1 * 2, c2)
+      @test isapprox(c2 / 2, c1)
+
     end
 
     @testset "Load/write data from/to file" begin
