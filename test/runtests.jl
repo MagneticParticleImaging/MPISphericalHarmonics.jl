@@ -65,8 +65,8 @@ using Aqua
       coeffsMF = MagneticFieldCoefficients(coeffs)
       @test coeffsMF.coeffs == coeffs
       @test coeffsMF.radius == 0.0
-      @test coeffsMF.center == zeros(Float64,3)
-      @test coeffsMF.ffp === nothing
+      @test coeffsMF.center == zeros(Float64,3,1)
+      @test isnothing(coeffsMF.ffp)
 
       L = 1
       coeffsMF = MagneticFieldCoefficients(L)
@@ -76,13 +76,13 @@ using Aqua
       coeffsMF = MagneticFieldCoefficients(coeffs,0.042,zeros(3,1))
       @test coeffsMF.coeffs == coeffs
       @test coeffsMF.radius == 0.042
-      @test coeffsMF.center == zeros(Float64,3)
-      @test coeffsMF.ffp == zeros(3,1)
+      @test coeffsMF.center == zeros(Float64,3,1)
+      @test isnothing(coeffsMF.ffp)
 
       # constructor with t-design
       coeffsMF = MagneticFieldCoefficients(coeffs, tDes, zeros(Float64,3,1))
       @test coeffsMF.radius == 0.042
-      @test coeffsMF.center == zeros(Float64,3)
+      @test coeffsMF.center == zeros(Float64,3,1)
       @test coeffsMF.ffp == zeros(Float64,3,1) 
     
       # constructor with wrong FFP sizes

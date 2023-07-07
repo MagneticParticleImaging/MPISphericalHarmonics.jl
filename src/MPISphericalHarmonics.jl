@@ -7,12 +7,14 @@ using Unitful
 using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
+using NLsolve # for Newton solver
 
 import Base.length
 
 # load MagneticFieldCoefficients
 include("MagneticFieldCoefficients.jl")
 export MagneticFieldCoefficients
+export shift, shift!, shiftFFP!
 
 ## SphericalHarmonicsDefinedField ##
 export SphericalHarmonicsDefinedField
