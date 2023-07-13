@@ -70,8 +70,12 @@ using Aqua
 
       L = 1
       coeffsMF = MagneticFieldCoefficients(L)
-      @test size(coeffsMF.coeffs) == (3,1)
+      @test size(coeffsMF) == (3,1)
       [@test coeffsMF.coeffs[j,1].L == L for j=1:3]
+      
+      # multiple patches
+      coeffsMF = MagneticFieldCoefficients(L, numPatches = 2)
+      @test size(coeffsMF) == (3,2)
 
       coeffsMF = MagneticFieldCoefficients(coeffs,0.042,zeros(3,1))
       @test coeffsMF.coeffs == coeffs
@@ -88,9 +92,6 @@ using Aqua
       # constructor with wrong FFP sizes
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(2,1))
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3,2))
-
-      # test size
-      @test size(coeffsMF) == (3,1)
     end
 
     @testset "MagneticFieldCoefficient operations" begin
@@ -132,6 +133,31 @@ using Aqua
       @test isapprox(c1 * 2, c2)
       @test isapprox(c2 / 2, c1)
 
+      # indexing
+        # setup MagneticFieldCoefficients with multiple patches
+        csh = reshape(hcat(SphericalHarmonicCoefficients.([rand(16) for i=1:12])...), 3,4)
+        center = rand(3,4)
+        ffp = rand(3,4)
+        coeffsMF = MagneticFieldCoefficients(csh,0.01,center,ffp)
+        c1 = MagneticFieldCoefficients(csh[:,2:2],0.01,center[:,2:2],ffp[:,2:2])
+        c2 = MagneticFieldCoefficients(csh[:,3:4],0.01,center[:,3:4],ffp[:,3:4])
+
+        # test getindex
+        @test isapprox(coeffsMF[2], c1)
+        @test isapprox(coeffsMF[3:4], c2)
+
+        # test setindex
+        coeffsMF[1] = coeffsMF[2]
+        @test isapprox(coeffsMF[1], c1)
+        coeffsMF[1:2] = coeffsMF[3:4]
+        @test isapprox(coeffsMF[1:2], c2)
+
+        # test errors 
+        c3 = MagneticFieldCoefficients(csh[:,2:2],0.02,center[:,2:2],ffp[:,2:2]) # different radius
+        c4 = MagneticFieldCoefficients(csh[:,2:2],0.01,center[:,2:2]) # no FFP
+        
+        @test_throws DomainError coeffsMF[1] = c3 # different radius
+        @test_throws DomainError coeffsMF[1] = c4 # no FFP
     end
 
     @testset "Load/write data from/to file" begin

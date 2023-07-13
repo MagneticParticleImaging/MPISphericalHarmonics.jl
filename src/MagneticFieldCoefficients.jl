@@ -1,4 +1,5 @@
-import Base.isapprox, Base.==,
+import Base.getindex, Base.setindex!,
+        Base.isapprox, Base.==,
         Base.+, Base.-, Base.*, Base./, 
         Base.write, Base.size
 
@@ -98,16 +99,36 @@ end
 # Size
 size(mfc::MagneticFieldCoefficients, kargs...) = size(mfc.coeffs, kargs...)
 
+# indexing
+getindex(mfc::MagneticFieldCoefficients, i) = MagneticFieldCoefficients(reshape(getindex(mfc.coeffs, :, i),3,length(i)), mfc.radius, reshape(getindex(mfc.center, :, i),3,length(i)), isnothing(mfc.ffp) ? nothing : reshape(getindex(mfc.ffp, :, i),3,length(i)))
+function setindex!(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients, i) 
+    # setindex not possible in some cases 
+    if mfc1.radius != mfc2.radius
+        throw(DomainError([mfc1.radius,mfc2.radius],"Coefficients do not have the same measurement radius."))
+    elseif !isnothing(mfc1.ffp) && isnothing(mfc2.ffp)
+        throw(DomainError([mfc1.ffp,mfc2.ffp],"Coefficients do not provide an FFP."))
+    end
+    # set coefficients and center
+    setindex!(mfc1.coeffs, mfc2.coeffs, :, i) 
+    setindex!(mfc1.center, mfc2.center, :, i) 
+    # set FFP (ignore mfc2.ffp if mfc1.ffp === nothing)
+    if !isnothing(mfc1.ffp) && !isnothing(mfc2.ffp)
+        setindex!(mfc1.ffp, mfc2.ffp, :, i)
+    end
+    return nothing
+end
+
+
 # Operations on MagneticFieldCoefficients
 function isapprox(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients; kargs...)
     val = all(isapprox.(mfc1.coeffs,mfc2.coeffs;kargs...)) && isapprox(mfc1.radius,mfc2.radius;kargs...) && isapprox(mfc1.center,mfc2.center;kargs...)
     if isnothing(mfc1.ffp) && isnothing(mfc2.ffp)
         return  val
-    elseif !isnothing(mfc1.ffp) || !isnothing(mfc2.ffp)
-        @info "Only one of the coefficients has FFPs. Applying isapprox to the other values yields $val."
-        return false
-    else
+    elseif !isnothing(mfc1.ffp) && !isnothing(mfc2.ffp)
         return val && isapprox(mfc1.ffp,mfc2.ffp;kargs...)
+    else
+        @info "Only one of the coefficients has FFPs. Applying isapprox to the other values yields $val."
+        return false   
     end
 end
 ==(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients) = 
@@ -123,10 +144,10 @@ function +(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients; for
         return MagneticFieldCoefficients(mfc1.coeffs .+ mfc2.coeffs, mfc1.radius, mfc1.center)
     end
     if mfc1.radius != mfc2.radius
-        throw(DomainError([mfc1.radius,mfc2.radius],"Coefficients do not have the same measurement radius."))
+        throw(DomainError([mfc1.radius,mfc2.radius],"Coefficients do not have the same measurement radius. (Use `force = true`.)"))
     end
     if mfc1.center != mfc2.center
-        throw(DomainError([mfc1.center,mfc2.center],"Coefficients do not have the same measurement center."))
+        throw(DomainError([mfc1.center,mfc2.center],"Coefficients do not have the same measurement center. (Use `force = true`.)"))
     end
     return MagneticFieldCoefficients(mfc1.coeffs .+ mfc2.coeffs, mfc1.radius, mfc1.center)
 end
@@ -271,12 +292,7 @@ function loadTDesignCoefficients(filename::String)
 end
 
 # Shift coefficients into new expansion point
-function shift!(coeffsMF::MagneticFieldCoefficients, v::Union{Vector{T},Matrix{T}}) where T <: Real
-
-    # create matrix from vector
-    if typeof(v) <: Vector
-        v = hcat([v for i=1:size(coeffsMF,2)]...)
-    end
+function shift!(coeffsMF::MagneticFieldCoefficients, v::Matrix{T}) where T <: Real
 
     # test dimensions of shifting vector/array
     if size(v,1) != 3
@@ -295,6 +311,17 @@ function shift!(coeffsMF::MagneticFieldCoefficients, v::Union{Vector{T},Matrix{T
     if !isnothing(coeffsMF.ffp)
         coeffsMF.ffp -= v
     end
+
+    return nothing
+end
+
+function shift!(coeffsMF::MagneticFieldCoefficients, v::Vector{T}) where T <: Real
+
+    # create matrix from vector
+    v = hcat([v for i=1:size(coeffsMF,2)]...)
+
+    # shift coefficients
+    shift!(coeffsMF,v)
 
     return nothing
 end
