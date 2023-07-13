@@ -47,34 +47,72 @@ end
 MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, tDesign::SphericalTDesign, ffp=nothing) = MagneticFieldCoefficients(coeffs,ustrip(Unitful.m(tDesign.radius)), ustrip.(Unitful.m.(tDesign.center)), ffp)
 
 
-# read coefficients from an HDF5-file
+# read coefficients/measurement data from an HDF5-file
 function MagneticFieldCoefficients(path::String)
 
-    # load spherical harmonic coefficients
-    shcoeffs = SphericalHarmonicCoefficients(path)
-
     coeffsMF = h5open(path,"r") do file
-        if haskey(HDF5.root(file), "/radius") 
-            # file contains all relevant information
-            radius = read(file, "/radius")
-            center = read(file, "/center")
-            if haskey(HDF5.root(file), "/ffp")
-                ffp = read(file, "/ffp")
-                return MagneticFieldCoefficients(shcoeffs, radius, center, ffp)
-            else
-                # field has not FFP -> ffp = nothing
-                return MagneticFieldCoefficients(shcoeffs, radius, center)
-            end
+        if haskey(HDF5.root(file),"/coeffs")
+            # coefficients available    
+            return loadCoefficients(path)
+
+        elseif haskey(HDF5.root(file),"/fields") && haskey(HDF5.root(file),"/positions/tDesign")
+            # calculate coefficients
+            return loadTDesignCoefficients(path)
+        
         else
-            # convert file of SphericalHarmonicCoefficients into MagneticFieldCoefficients
-            # -> set all additional informations to 0 or nothing
-            # use radius = 0.01 as default value
-            return MagneticFieldCoefficients(shcoeffs, 0.01)
+            throw(ErrorException("Unknown file structure."))
         end
     end
 
     return coeffsMF
 end
+
+# read coefficients from an HDF5-file
+function loadCoefficients(path::String)
+
+    # load spherical harmonic coefficients
+    shcoeffs = SphericalHarmonicCoefficients(path)
+
+    coeffsMF = h5open(path,"r") do file
+        if !haskey(HDF5.root(file), "/radius") || !haskey(HDF5.root(file), "/center")
+            @warn "The file does not provide all necessary measurement informations."
+        end
+
+        # set all informations not given in the file to 0 or nothing
+        radius = haskey(HDF5.root(file), "/radius") ? read(file, "/radius") : 0.0
+        center = haskey(HDF5.root(file), "/center") ? read(file, "/center") : zeros(size(shcoeffs))
+        ffp = haskey(HDF5.root(file), "/ffp") ? read(file, "/ffp") : nothing
+
+        return MagneticFieldCoefficients(shcoeffs, radius, center, ffp)
+    end
+
+    return coeffsMF
+end
+
+# load coefficients from measurement data
+# TODO: This should be merged with and moved to MPIFiles
+function loadTDesignCoefficients(filename::String)
+    field, radius, N, t, center, correction  = h5open(filename, "r") do file
+      field = read(file,"/fields") 		# measured field (size: 3 x #points x #patches)
+      radius = read(file,"/positions/tDesign/radius")	# radius of the measured ball
+      N = read(file,"/positions/tDesign/N")		# number of points of the t-design
+      t = read(file,"/positions/tDesign/t")		# t of the t-design
+      center = read(file,"/positions/tDesign/center")	# center of the measured ball
+      correction = read(file, "/sensor/correctionTranslation")
+      return field, radius, N, t, center, correction
+    end
+    @polyvar x y z
+    tDes = MPIFiles.loadTDesign(Int(t),N,radius*u"m", center.*u"m")
+    coeffs, = magneticField(tDes, field, x,y,z)
+    for c=1:size(coeffs,2), j = 1:3
+      coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
+    end
+  
+    coeffs_MF = MagneticFieldCoefficients(coeffs, radius, center)
+  
+    return coeffs_MF
+end
+
 
 # write coefficients to an HDF5-file
 function write(path::String, coeffs::MagneticFieldCoefficients)
@@ -266,29 +304,6 @@ function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T
   end
 
   return coeffs, expansion, func
-end
-
-#TODO: This should be merged with and moved to MPIFiles
-function loadTDesignCoefficients(filename::String)
-  field, radius, N, t, center, correction  = h5open(filename, "r") do file
-    field = read(file,"/fields") 		# measured field (size: 3 x #points x #patches)
-    radius = read(file,"/positions/tDesign/radius")	# radius of the measured ball
-    N = read(file,"/positions/tDesign/N")		# number of points of the t-design
-    t = read(file,"/positions/tDesign/t")		# t of the t-design
-    center = read(file,"/positions/tDesign/center")	# center of the measured ball
-    correction = read(file, "/sensor/correctionTranslation")
-    return field, radius, N, t, center, correction
-  end
-  @polyvar x y z
-  tDes = MPIFiles.loadTDesign(Int(t),N,radius*u"m", center.*u"m")
-  coeffs, = magneticField(tDes, field, x,y,z)
-  for c=1:size(coeffs,2), j = 1:3
-    coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
-  end
-
-  coeffs_MF = MagneticFieldCoefficients(coeffs, radius, center)
-
-  return coeffs_MF
 end
 
 # Shift coefficients into new expansion point

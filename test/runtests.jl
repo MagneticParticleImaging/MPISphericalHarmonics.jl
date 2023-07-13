@@ -169,7 +169,7 @@ using Aqua
       @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
 
       # get coefficients
-      coeffsMF = MPISphericalHarmonics.loadTDesignCoefficients(filename)
+      coeffsMF = MagneticFieldCoefficients(filename)
       @test isapprox(coeffsMF.radius, 0.042, atol=ε) # radius
       @test isapprox(coeffsMF.coeffs[1][1,1], -1.0, atol=1e-10) # gradient (x)
       @test isapprox(coeffsMF.coeffs[2][1,-1], -1.0, atol=1e-10) # gradient (y)
@@ -181,6 +181,7 @@ using Aqua
       filename3 = "Coeffs2.h5"
       filename4 = "Coeffs3.h5"
       filenameW = "CoeffsW.h5"
+      filenameE = "CoeffsE.h5"
       write(filename2, coeffsMF.coeffs)
       # add radius and center
       cp(filename2, filename3)
@@ -196,7 +197,7 @@ using Aqua
 
       # only coefficients (no further informations given)
       coeffsTest = MagneticFieldCoefficients(filename2)
-      @test isapprox(coeffsTest.radius, 0.01, atol=ε) # radius
+      @test isapprox(coeffsTest.radius, 0.0, atol=ε) # radius
  
       # with given radius & center
       coeffsTest = MagneticFieldCoefficients(filename3)
@@ -217,6 +218,11 @@ using Aqua
       @test isapprox(coeffsW.center, zeros(3), atol=ε) # center
       @test coeffsW.ffp == zeros(3,1) # FFP
       coeffsW = nothing # This maybe masks an implementation error
+
+      # test error
+      h5write(filenameE, "test", 0)
+      @test_throws ErrorException MagneticFieldCoefficients(filenameE)
+
       GC.gc()
 
       # remove test files
@@ -224,6 +230,7 @@ using Aqua
       rm(filename3)
       rm(filename4)
       rm(filenameW)
+      rm(filenameE)
     end
 
     @testset "SphericalHarmonicsDefinedField (multiple patches)" begin
