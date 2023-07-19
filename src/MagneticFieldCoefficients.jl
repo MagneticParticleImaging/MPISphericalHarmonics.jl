@@ -101,9 +101,8 @@ function loadTDesignCoefficients(filename::String)
       correction = read(file, "/sensor/correctionTranslation")
       return field, radius, N, t, center, correction
     end
-    @polyvar x y z
     tDes = MPIFiles.loadTDesign(Int(t),N,radius*u"m", center.*u"m")
-    coeffs, = magneticField(tDes, field, x,y,z)
+    coeffs = magneticField(tDes, field)
     for c=1:size(coeffs,2), j = 1:3
       coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
     end
@@ -219,16 +218,14 @@ end
 
 ## Load coefficients from t-design measurement ##
 """
-    magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2},AbstractArray{T,3}}, 
-		       x::Variable, y::Variable, z::Variable;
+    magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2},AbstractArray{T,3}};
 		       L::Int=Int(tDesign.T/2),
 		       calcSolid::Bool=true) where T <: Real
-*Description:*  Calculation of the spherical harmonic coefficients and expansion based on the measured t-design\\
+*Description:*  Calculation of the spherical harmonic coefficients based on the measured t-design\\
  \\
 *Input:*
 - `tDesign`	- Measured t-design (type: SphericalTDesign)
 - `field`       - Measured field (size = (J,N,C)) with J <= 3
-- `x, y, z`     - Cartesian coordinates
 **kwargs:**
 - `L`           - Order up to which the coeffs be calculated (default: t/2)
 - `calcSolid`   - Boolean (default: true)\\
@@ -236,11 +233,8 @@ end
     true -> solid coefficients
 *Output:*
 - `coeffs`    - spherical/solid coefficients, type: Array{SphericalHarmonicCoefficients}(3,C)
-- `expansion` - related expansion (Cartesian polynomial), type: Array{AbstractPolynomialLike}(3,C)
-- `func`      - expansion converted to a function, type: Array{Function}(3,C)
 """
 function magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2},AbstractArray{T,3}}, 
-		       x::Variable, y::Variable, z::Variable;
 		       L::Int=floor(Int,tDesign.T/2),
 		       calcSolid::Bool=true) where T <: Real
 
@@ -256,13 +250,11 @@ function magneticField(tDesign::SphericalTDesign, field::Union{AbstractArray{T,2
   
   return magneticField(coords, field, 
 		       R, center, L,
-		       x, y, z,
 		       calcSolid)
 end
 
 function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T, 2}, AbstractArray{T, 3}}, 
                        R::T, center::Vector{T}, L::Int,
-                       x::Variable, y::Variable, z::Variable, 
                        calcSolid::Bool=true) where T <: Real
 
   # transpose coords if its dimensions do not fit
@@ -277,8 +269,6 @@ function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T
     throw(DimensionMismatch("The field vector does not match the size of the tdesign: $(size(field,2)) != $(size(coords,2))"))
   end
 
-  func= Array{Function}(undef,size(field,1),size(field,3))
-  expansion = Array{Polynomial}(undef,size(field,1),size(field,3))
   coeffs = Array{SphericalHarmonicCoefficients}(undef,size(field,1),size(field,3))
 
   # rescale coordinates to t-design on unit sphere
@@ -296,14 +286,10 @@ function magneticField(coords::AbstractArray{T, 2}, field::Union{AbstractArray{T
       if calcSolid
           solid!(coeffs[j,c])
       end
-
-      # calculation of the expansion
-      expansion[j,c] = sphericalHarmonicsExpansion(coeffs[j,c],x,y,z) + 0*x;
-      func[j,c] = @fastfunc expansion[j,c]+0*x+0*y+0*z
     end
   end
 
-  return coeffs, expansion, func
+  return coeffs
 end
 
 # Shift coefficients into new expansion point

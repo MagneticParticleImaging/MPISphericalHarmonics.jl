@@ -22,8 +22,7 @@ using Aqua
     fieldValues = hcat([idealField[ustrip.(Unitful.m.(pos))...] for pos in tDes]...)
 
     ## Calculate coefficients
-    MPISphericalHarmonics.@polyvar x y z
-    coeffs, = MPISphericalHarmonics.magneticField(tDes, fieldValues, x,y,z)
+    coeffs = MPISphericalHarmonics.magneticField(tDes, fieldValues)
 
     ## Test coefficients
     numCoeffs = length(coeffs[1,1].c)
@@ -43,14 +42,14 @@ using Aqua
       L = floor(Int,tDes.T/2)
   
       # transposed positions
-      coeffsTest, = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L, x, y, z)
+      coeffsTest = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L)
       for j=1:3
         @test isapprox(coeffs[j,1].c, coeffsTest[j,1].c, atol = 1e-10)
       end
 
       # Errors
-      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L, x, y, z) # >3 field values in the first dimension 
-      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L, x, y, z) # number of field values != number of measured positions
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L) # >3 field values in the first dimension 
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L) # number of field values != number of measured positions
     end
 
 
