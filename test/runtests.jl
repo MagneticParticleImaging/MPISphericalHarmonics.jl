@@ -22,8 +22,7 @@ using Aqua
     fieldValues = hcat([idealField[ustrip.(Unitful.m.(pos))...] for pos in tDes]...)
 
     ## Calculate coefficients
-    MPISphericalHarmonics.@polyvar x y z
-    coeffs, = MPISphericalHarmonics.magneticField(tDes, fieldValues, x,y,z)
+    coeffs = MPISphericalHarmonics.magneticField(tDes, fieldValues)
 
     ## Test coefficients
     numCoeffs = length(coeffs[1,1].c)
@@ -43,14 +42,14 @@ using Aqua
       L = floor(Int,tDes.T/2)
   
       # transposed positions
-      coeffsTest, = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L, x, y, z)
+      coeffsTest = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L)
       for j=1:3
         @test isapprox(coeffs[j,1].c, coeffsTest[j,1].c, atol = 1e-10)
       end
 
       # Errors
-      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L, x, y, z) # >3 field values in the first dimension 
-      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L, x, y, z) # number of field values != number of measured positions
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L) # >3 field values in the first dimension 
+      @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L) # number of field values != number of measured positions
     end
 
 
@@ -65,32 +64,33 @@ using Aqua
       coeffsMF = MagneticFieldCoefficients(coeffs)
       @test coeffsMF.coeffs == coeffs
       @test coeffsMF.radius == 0.0
-      @test coeffsMF.center == zeros(Float64,3)
-      @test coeffsMF.ffp === nothing
+      @test coeffsMF.center == zeros(Float64,3,1)
+      @test isnothing(coeffsMF.ffp)
 
       L = 1
       coeffsMF = MagneticFieldCoefficients(L)
-      @test size(coeffsMF.coeffs) == (3,1)
+      @test size(coeffsMF) == (3,1)
       [@test coeffsMF.coeffs[j,1].L == L for j=1:3]
+      
+      # multiple patches
+      coeffsMF = MagneticFieldCoefficients(L, numPatches = 2)
+      @test size(coeffsMF) == (3,2)
 
       coeffsMF = MagneticFieldCoefficients(coeffs,0.042,zeros(3,1))
       @test coeffsMF.coeffs == coeffs
       @test coeffsMF.radius == 0.042
-      @test coeffsMF.center == zeros(Float64,3)
-      @test coeffsMF.ffp == zeros(3,1)
+      @test coeffsMF.center == zeros(Float64,3,1)
+      @test isnothing(coeffsMF.ffp)
 
       # constructor with t-design
       coeffsMF = MagneticFieldCoefficients(coeffs, tDes, zeros(Float64,3,1))
       @test coeffsMF.radius == 0.042
-      @test coeffsMF.center == zeros(Float64,3)
+      @test coeffsMF.center == zeros(Float64,3,1)
       @test coeffsMF.ffp == zeros(Float64,3,1) 
     
       # constructor with wrong FFP sizes
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(2,1))
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3,2))
-
-      # test size
-      @test size(coeffsMF) == (3,1)
     end
 
     @testset "MagneticFieldCoefficient operations" begin
@@ -132,6 +132,31 @@ using Aqua
       @test isapprox(c1 * 2, c2)
       @test isapprox(c2 / 2, c1)
 
+      # indexing
+        # setup MagneticFieldCoefficients with multiple patches
+        csh = reshape(hcat(SphericalHarmonicCoefficients.([rand(16) for i=1:12])...), 3,4)
+        center = rand(3,4)
+        ffp = rand(3,4)
+        coeffsMF = MagneticFieldCoefficients(csh,0.01,center,ffp)
+        c1 = MagneticFieldCoefficients(csh[:,2:2],0.01,center[:,2:2],ffp[:,2:2])
+        c2 = MagneticFieldCoefficients(csh[:,3:4],0.01,center[:,3:4],ffp[:,3:4])
+
+        # test getindex
+        @test isapprox(coeffsMF[2], c1)
+        @test isapprox(coeffsMF[3:4], c2)
+
+        # test setindex
+        coeffsMF[1] = coeffsMF[2]
+        @test isapprox(coeffsMF[1], c1)
+        coeffsMF[1:2] = coeffsMF[3:4]
+        @test isapprox(coeffsMF[1:2], c2)
+
+        # test errors 
+        c3 = MagneticFieldCoefficients(csh[:,2:2],0.02,center[:,2:2],ffp[:,2:2]) # different radius
+        c4 = MagneticFieldCoefficients(csh[:,2:2],0.01,center[:,2:2]) # no FFP
+        
+        @test_throws DomainError coeffsMF[1] = c3 # different radius
+        @test_throws DomainError coeffsMF[1] = c4 # no FFP
     end
 
     @testset "Load/write data from/to file" begin
@@ -143,7 +168,7 @@ using Aqua
       @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
 
       # get coefficients
-      coeffsMF = MPISphericalHarmonics.loadTDesignCoefficients(filename)
+      coeffsMF = MagneticFieldCoefficients(filename)
       @test isapprox(coeffsMF.radius, 0.042, atol=ε) # radius
       @test isapprox(coeffsMF.coeffs[1][1,1], -1.0, atol=1e-10) # gradient (x)
       @test isapprox(coeffsMF.coeffs[2][1,-1], -1.0, atol=1e-10) # gradient (y)
@@ -155,6 +180,7 @@ using Aqua
       filename3 = "Coeffs2.h5"
       filename4 = "Coeffs3.h5"
       filenameW = "CoeffsW.h5"
+      filenameE = "CoeffsE.h5"
       write(filename2, coeffsMF.coeffs)
       # add radius and center
       cp(filename2, filename3)
@@ -170,7 +196,7 @@ using Aqua
 
       # only coefficients (no further informations given)
       coeffsTest = MagneticFieldCoefficients(filename2)
-      @test isapprox(coeffsTest.radius, 0.01, atol=ε) # radius
+      @test isapprox(coeffsTest.radius, 0.0, atol=ε) # radius
  
       # with given radius & center
       coeffsTest = MagneticFieldCoefficients(filename3)
@@ -191,6 +217,11 @@ using Aqua
       @test isapprox(coeffsW.center, zeros(3), atol=ε) # center
       @test coeffsW.ffp == zeros(3,1) # FFP
       coeffsW = nothing # This maybe masks an implementation error
+
+      # test error
+      h5write(filenameE, "test", 0)
+      @test_throws ErrorException MagneticFieldCoefficients(filenameE)
+
       GC.gc()
 
       # remove test files
@@ -198,6 +229,7 @@ using Aqua
       rm(filename3)
       rm(filename4)
       rm(filenameW)
+      rm(filenameE)
     end
 
     @testset "SphericalHarmonicsDefinedField (multiple patches)" begin
