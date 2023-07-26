@@ -27,17 +27,10 @@ end
 
 function SphericalHarmonicsDefinedField(filename::String)
 
-  func = h5open(filename,"r") do file
-    if haskey(file,"coeffs") 
-      # load coefficients
-      coeffs_MF = MagneticFieldCoefficients(filename)
-    else
-      # load measured field
-      coeffs_MF = loadTDesignCoefficients(filename)
-    end
-
-    return fastfunc.(coeffs_MF.coeffs)
-  end
+  # load coefficients
+  mfc = MagneticFieldCoefficients(filename)
+  # get field function
+  func = fastfunc.(mfc.coeffs)
 
   return SphericalHarmonicsDefinedField(func=func)
 end
