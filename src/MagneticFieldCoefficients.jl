@@ -36,11 +36,13 @@ MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, radius
 MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, radius::Float64, center::VecOrMat{Float64}) = MagneticFieldCoefficients(coeffs,radius,center,nothing)
 MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, radius::Float64, center::Vector{Float64},ffp::Union{Matrix{Float64},Nothing}) = MagneticFieldCoefficients(coeffs,radius,hcat([center for p=1:size(coeffs,2)]...),ffp)
 
-function MagneticFieldCoefficients(L::Int; numPatches::Int=1)
+function MagneticFieldCoefficients(L::Int, R::Float64=1.0, solid::Bool=true;
+                                   radius::Float64=0.0, center::VecOrMat{Float64}=[0.0,0.0,0.0],
+                                   numPatches::Int=1)
     if L<0
         throw(DomainError(L,"Input vector needs to be of size (L+1)², where L ∈ ℕ₀."))
     end
-    return MagneticFieldCoefficients([SphericalHarmonicCoefficients(L) for j = 1:3, p=1:numPatches])
+    return MagneticFieldCoefficients([SphericalHarmonicCoefficients(L,R,solid) for j = 1:3, p=1:numPatches],radius,center)
 end
 
 # constructor using t-design
@@ -215,6 +217,51 @@ end
 -(value::Number, mfc::MagneticFieldCoefficients) = MagneticFieldCoefficients(value .- mfc.coeffs, mfc.radius, mfc.center, mfc.ffp)
 *(value::Number, mfc::MagneticFieldCoefficients) = *(mfc::MagneticFieldCoefficients, value)
 
+## get some field-specific values
+"""
+    getOffset(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
+
+Get the offset of the field described by mfc[idx].
+"""
+getOffset(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2)) = [c[0,0] for c in mfc.coeffs[idx]]
+"""
+    getGradient(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
+
+Get the gradient of the field described by mfc[idx].
+"""
+function getGradient(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
+    # ideal gradient would be [[mfc.coeffs[1,p][1,1], mfc.coeffs[2,p][1,-1], mfc.coeffs[3,p][1,0]] for p in idx]
+
+    G = Vector{Float64}[]
+    for p in idx
+        # calculate jacobian matrix
+        @polyvar x y z
+        expansion = sphericalHarmonicsExpansion.(mfc.coeffs[:,p],[x],[y],[z])
+        jexp = differentiate(expansion,[x,y,z]);
+        push!(G,[jexp[i,i]((x,y,z) => [0.0,0.0,0.0]) for i=1:3]) # gradient = diag(jacobian matrix)
+    end
+
+    return G
+end
+"""
+    getJacobian(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
+
+Get the Jacobian matrix of the field described by mfc[idx].
+"""
+function getJacobian(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
+    # ideal Jacobian matrix would be [vcat([[c[1,1], c[1,-1], c[1,0]]' for c in mfc.coeffs[:,p]]...) for p in idx]
+
+    J = Matrix{Float64}[]
+    for p in idx
+        # calculate jacobian matrix
+        @polyvar x y z
+        expansion = sphericalHarmonicsExpansion.(mfc.coeffs[:,p],[x],[y],[z])
+        jexp = differentiate(expansion,[x,y,z]);
+        push!(J,[jexp[i,j]((x,y,z) => [0.0,0.0,0.0]) for i=1:3, j=1:3]) # jacobian matrix
+    end
+
+    return J
+end
 
 ## Load coefficients from t-design measurement ##
 """
@@ -379,6 +426,7 @@ function findFFP(coeffsMF::MagneticFieldCoefficients;
     # return all FFPs in a matrix or as array with the solver results
     ffp = returnasmatrix ? zeros(size(expansion)) : Array{NLsolve.SolverResults{Float64}}(undef,size(expansion,2))
     for c in axes(expansion,2)
+        print("$c ")
 
         px = expansion[1,c]
         py = expansion[2,c]

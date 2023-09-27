@@ -91,6 +91,11 @@ using Aqua
       # constructor with wrong FFP sizes
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(2,1))
       @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3,2))
+
+      # test offset/gradient/Jacobian
+      @test isapprox(getOffset(coeffsMF),[0.0], atol=1e-10)
+      @test isapprox(getGradient(coeffsMF), [[-1.0,-1.0,2.0]], atol=1e-10)
+      @test isapprox(getJacobian(coeffsMF), [[-1.0 0.0 0.0; 0.0 -1.0 0.0; 0.0 0.0 2.0]], atol=1e-10)
     end
 
     @testset "MagneticFieldCoefficient operations" begin

@@ -14,6 +14,7 @@ import Base.length
 # load MagneticFieldCoefficients
 include("MagneticFieldCoefficients.jl")
 export MagneticFieldCoefficients
+export getOffset, getGradient, getJacobian
 export shift, shift!, shiftFFP!
 
 ## SphericalHarmonicsDefinedField ##
@@ -21,7 +22,7 @@ export SphericalHarmonicsDefinedField
 export selectPatch, length
 
 Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticField
-  func::Array{SphericalHarmonicExpansions.StaticPolynomials.Polynomial, 2}
+  func::Array{Union{Function,SphericalHarmonicExpansions.StaticPolynomials.Polynomial}, 2}
   patch::Integer = 1
 end
 
