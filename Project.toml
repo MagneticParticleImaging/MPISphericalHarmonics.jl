@@ -5,6 +5,7 @@ version = "0.0.6"
 
 [deps]
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MPIFiles = "371237a9-e6c1-5201-9adb-3d8cfa78fa9f"
 MPIMagneticFields = "f6dda52a-86e9-4b50-afb7-f39836a99446"
@@ -14,6 +15,7 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 DocStringExtensions = "0.8, 0.9"
+HDF5 = "0.14, 0.15, 0.16"
 MPIFiles = "0.12, 0.13, 0.14"
 MPIMagneticFields = "0.0.4, 0.0.5, 0.0.6"
 NLsolve = "4"
@@ -24,7 +26,6 @@ julia = "1"
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
-HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"

@@ -8,6 +8,7 @@ using MPIMagneticFields
 using SphericalHarmonicExpansions
 using MPIFiles
 using NLsolve # for Newton solver
+using HDF5
 
 import Base.length
 
