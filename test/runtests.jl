@@ -6,6 +6,8 @@ using Test
 using Aqua
 using Artifacts
 using Scratch
+using Unitful
+using HDF5
 
 const datadir = artifact"testData"
 @info "The test data is located at $datadir."
