@@ -6,6 +6,7 @@ using Test
 using Aqua
 using Artifacts
 using Scratch
+using Unitful
 
 const datadir = artifact"testData"
 @info "The test data is located at $datadir."

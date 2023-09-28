@@ -26,6 +26,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 Scratch = "6c6a2e73-6563-6170-7368-637461726353"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [targets]
-test = ["Aqua", "Artifacts", "Scratch", "Test"]
+test = ["Aqua", "Artifacts", "Scratch", "Test", "Unitful"]
