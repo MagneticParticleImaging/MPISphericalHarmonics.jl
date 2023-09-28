@@ -4,13 +4,20 @@ using MPIFiles
 using SphericalHarmonicExpansions
 using Test
 using Aqua
+using Artifacts
+using Scratch
+
+const datadir = artifact"testData"
+@info "The test data is located at $datadir."
+
+const tmpdir  = @get_scratch!("tmp")
+@info "If you want to check the output of the tests, please head to $tmpdir."
 
 @testset "MPISphericalHarmonics.jl" begin
   @testset "Aqua" begin
     Aqua.test_all(MPISphericalHarmonics)
   end
 
- 
   @testset "Ideal Coefficents" begin
 
     ## Calculate some field values
@@ -51,7 +58,6 @@ using Aqua
       @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4,length(tDes)), R, center, L) # >3 field values in the first dimension 
       @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:,1:end-1], R, center, L) # number of field values != number of measured positions
     end
-
 
     @testset "MagneticFieldCoefficients" begin
 
@@ -168,7 +174,7 @@ using Aqua
       ɛ = eps(Float64)
 
       ## measurement data (without coefficients)
-      filename = "idealGradientField.h5"
+      filename = joinpath(datadir, "idealGradientField.h5")
       field = SphericalHarmonicsDefinedField(filename)
       @test isapprox(field[0.01,0.01,0.01], [-0.01,-0.01,0.02], atol=ε)
 
@@ -181,11 +187,11 @@ using Aqua
 
       ## load coefficients from file
       # write coefficients in file
-      filename2 = "Coeffs.h5"
-      filename3 = "Coeffs2.h5"
-      filename4 = "Coeffs3.h5"
-      filenameW = "CoeffsW.h5"
-      filenameE = "CoeffsE.h5"
+      filename2 = joinpath(tmpdir, "Coeffs.h5")
+      filename3 = joinpath(tmpdir, "Coeffs2.h5")
+      filename4 = joinpath(tmpdir, "Coeffs3.h5")
+      filenameW = joinpath(tmpdir, "CoeffsW.h5")
+      filenameE = joinpath(tmpdir, "CoeffsE.h5")
       write(filename2, coeffsMF.coeffs)
       # add radius and center
       cp(filename2, filename3)
