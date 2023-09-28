@@ -4,7 +4,7 @@ using MPIFiles
 using SphericalHarmonicExpansions
 using Test
 using Aqua
-using Artifacts
+using LazyArtifacts
 using Scratch
 
 const datadir = artifact"testData"
