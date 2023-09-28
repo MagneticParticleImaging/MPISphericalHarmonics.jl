@@ -1,0 +1,6 @@
+[example]
+git-tree-sha1 = "77138514a045ce9866f67252b58448fd7edef4ac"
+
+    [[example.download]]
+    sha256 = "03a785e370b89a1fa467aee23e0711c52385a9893823198314e697199ea9faf1"
+    url = "https://gist.github.com/jonschumacher/031922964809632c4d2a80ccd5d90ad1/raw/77138514a045ce9866f67252b58448fd7edef4ac.tar.gz"

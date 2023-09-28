@@ -17,7 +17,7 @@ const tmpdir  = @get_scratch!("tmp")
 
 @testset "MPISphericalHarmonics.jl" begin
   @testset "Aqua" begin
-    Aqua.test_all(MPISphericalHarmonics, ambiguities=false)
+    Aqua.test_all(MPISphericalHarmonics)
   end
 
   @testset "Ideal Coefficents" begin
