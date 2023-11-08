@@ -17,6 +17,7 @@ include("MagneticFieldCoefficients.jl")
 export MagneticFieldCoefficients
 export getOffset, getGradient, getJacobian
 export shift, shift!, shiftFFP!
+export findFFP, findFFP!
 
 ## SphericalHarmonicsDefinedField ##
 export SphericalHarmonicsDefinedField

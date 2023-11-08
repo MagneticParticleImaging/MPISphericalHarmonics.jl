@@ -51,27 +51,16 @@ const tmpdir = @get_scratch!("tmp")
             L = floor(Int, tDes.T / 2)
 
             # transposed positions
-            coeffsTest =
-                MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L)
+            coeffsTest = MPISphericalHarmonics.magneticField(coords', fieldValues, R, center, L)
             for j = 1:3
                 @test isapprox(coeffs[j, 1].c, coeffsTest[j, 1].c, atol = 1e-10)
             end
 
             # Errors
-            @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(
-                coords,
-                zeros(4, length(tDes)),
-                R,
-                center,
-                L,
-            ) # >3 field values in the first dimension 
-            @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(
-                coords,
-                fieldValues[:, 1:end-1],
-                R,
-                center,
-                L,
-            ) # number of field values != number of measured positions
+            # >3 field values in the first dimension:
+            @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, zeros(4, length(tDes)), R, center, L)  
+            # number of field values != number of measured positions:
+            @test_throws DimensionMismatch MPISphericalHarmonics.magneticField(coords, fieldValues[:, 1:end-1], R, center, L) 
         end
 
         @testset "MagneticFieldCoefficients" begin
@@ -110,25 +99,13 @@ const tmpdir = @get_scratch!("tmp")
             @test coeffsMF.ffp == zeros(Float64, 3, 1)
 
             # constructor with wrong FFP sizes
-            @test_throws DimensionMismatch MagneticFieldCoefficients(
-                coeffs,
-                tDes,
-                zeros(2, 1),
-            )
-            @test_throws DimensionMismatch MagneticFieldCoefficients(
-                coeffs,
-                tDes,
-                zeros(3, 2),
-            )
+            @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(2, 1))
+            @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3, 2))
 
             # test offset/gradient/Jacobian
             @test isapprox(getOffset(coeffsMF), [0.0], atol = 1e-10)
             @test isapprox(getGradient(coeffsMF), [[-1.0, -1.0, 2.0]], atol = 1e-10)
-            @test isapprox(
-                getJacobian(coeffsMF),
-                [[-1.0 0.0 0.0; 0.0 -1.0 0.0; 0.0 0.0 2.0]],
-                atol = 1e-10,
-            )
+            @test isapprox(getJacobian(coeffsMF), [[-1.0 0.0 0.0; 0.0 -1.0 0.0; 0.0 0.0 2.0]], atol = 1e-10)
         end
 
         @testset "MagneticFieldCoefficient operations" begin
@@ -172,11 +149,7 @@ const tmpdir = @get_scratch!("tmp")
 
             # indexing
             # setup MagneticFieldCoefficients with multiple patches
-            csh = reshape(
-                hcat(SphericalHarmonicCoefficients.([rand(16) for i = 1:12])...),
-                3,
-                4,
-            )
+            csh = reshape(hcat(SphericalHarmonicCoefficients.([rand(16) for i = 1:12])...), 3, 4)
             center = rand(3, 4)
             ffp = rand(3, 4)
             coeffsMF = MagneticFieldCoefficients(csh, 0.01, center, ffp)
@@ -272,6 +245,84 @@ const tmpdir = @get_scratch!("tmp")
             rm(filename4)
             rm(filenameW)
             rm(filenameE)
+        end
+
+        @testset "Find FFP" begin
+
+            ## 3D with FFP ##
+            # setup an ideal gradient field with FFP
+            coeffsMF = MagneticFieldCoefficients( 
+                        reshape(
+                            SphericalHarmonicCoefficients(
+                                [[0.2, 0.0, 0.0, -1.0], # x-field
+                                [0.2, -1.0, 0.0, 0.0], # y-field
+                                [0.2, 0.0, 2.0, 0.0]], # z-field
+                                ones(3), # normalized
+                                BitVector([1,1,1])), # solid coefficients
+                            3,1), # get a matrix
+                        0.5) # radius
+
+            # find FFP (and set it as coeffsMF.ffp)
+            findFFP!(coeffsMF)
+            @test isapprox(coeffsMF.ffp, [0.2,0.2,-0.1]) # correct FFP
+        
+            # returnasmatrix = false
+            ffp = findFFP(coeffsMF, returnasmatrix = false)
+            @test isapprox(getproperty.(ffp, :zero), [[0.2,0.2,-0.1]])
+
+
+            ## 2D with different FFLs ##
+            # setup ideal FFLs
+            coeffsFFL = MagneticFieldCoefficients(1,1.0,true, radius=0.5, numPatches=4)
+            # FFL in z-direction (patch 1)
+                coeffsFFL.coeffs[1,1].c = [0.2, 0.0, 0.0, -1.0]
+                coeffsFFL.coeffs[2,1].c = [0.2, 1.0, 0.0, 0.0]
+                coeffsFFL.coeffs[3,1].c = [0.0, 0.0, 0.0, 0.0]
+            # FFL in x-direction (patch 2)
+                coeffsFFL.coeffs[1,2].c = [0.0, 0.0, 0.0, 0.0]
+                coeffsFFL.coeffs[2,2].c = [0.2, 1.0, 0.0, 0.0]
+                coeffsFFL.coeffs[3,2].c = [0.2, 0.0, -1.0, 0.0]
+            # FFL in y-direction (patch 3)
+                coeffsFFL.coeffs[1,3].c = [0.2, 0.0, 1.0, 0.0]
+                coeffsFFL.coeffs[2,3].c = [0.0, 0.0, 0.0, 0.0]
+                coeffsFFL.coeffs[3,3].c = [0.2, 0.0, 0.0, 1.0]
+            # FFL in y-direction (patch 4)
+                coeffsFFL.coeffs[1,4].c = [0.2, 0.0, -2.0, 0.0]
+                coeffsFFL.coeffs[2,4].c = [0.0, 0.0, 0.0, 0.0]
+                coeffsFFL.coeffs[3,4].c = [0.2, 0.0, 0.0, -2.0]
+
+            # correct FFPs for start=[0,0,0]
+            ffpCorrect = [[0.2,-0.2,0.0],
+                          [0.0,-0.2,0.2],
+                          [-0.2,0.0,-0.2],
+                          [0.1,0.0,0.1]]
+            # correct FFPs for patch 3 & 4 for start = [0,0.1,0]
+            ffpCorrectStart = [-0.2 0.1 -0.2;
+                                0.1 0.1 0.1]'
+
+            # find FFP
+                # FFL in z-direction
+                ffp = findFFP(coeffsFFL[1], vol=:xy) # use Symbol
+                @test isapprox(ffp, ffpCorrect[1])
+
+                # FFL in x-direction
+                ffp = findFFP(coeffsFFL[2], vol=MPISphericalHarmonics.yz) # use Enum
+                @test isapprox(ffp, ffpCorrect[2])
+
+                # FFL in y-direction
+                    # find FFP for patch 3
+                    ffp = findFFP(coeffsFFL[3], vol="xz") # use String
+                    @test isapprox(ffp, ffpCorrect[3])
+                    # find FFP for patch 3 & 4
+                    # with start vector (with length(start) != numPatches)
+                    ffp = findFFP(coeffsFFL[3:4], vol=:xz, start=[0.0,0.1,0.0])
+                    @test isapprox(ffp, ffpCorrectStart)
+
+            ## Errors
+            @test_throws DimensionMismatch findFFP(coeffsFFL[3:4], vol=:xz, start=[0.0,0.1]) # length(start) != 3
+            @test_throws DimensionMismatch findFFP(coeffsFFL[3:4], vol=:xz, start=[zeros(3) for i=1:3]) # number of start vectors != numPatches
+            @test_logs (:warn,"Volume IBI not defined. Default 3D volume used.")
+                    findFFP(coeffsMF, vol = "IBI") # volume not defined
         end
 
         @testset "SphericalHarmonicsDefinedField (multiple patches)" begin
