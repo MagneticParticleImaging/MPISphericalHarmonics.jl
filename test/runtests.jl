@@ -85,6 +85,7 @@ const tmpdir = @get_scratch!("tmp")
             # multiple patches
             coeffsMF = MagneticFieldCoefficients(L, numPatches = 2)
             @test size(coeffsMF) == (3, 2)
+            @test length(coeffsMF) == 2 # number of patches
 
             coeffsMF = MagneticFieldCoefficients(coeffs, 0.042, zeros(3, 1))
             @test coeffsMF.coeffs == coeffs
@@ -103,7 +104,7 @@ const tmpdir = @get_scratch!("tmp")
             @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, tDes, zeros(3, 2))
 
             # test offset/gradient/Jacobian
-            @test isapprox(getOffset(coeffsMF), [0.0], atol = 1e-10)
+            @test isapprox(getOffset(coeffsMF), [0.0, 0.0, 0.0], atol = 1e-10)
             @test isapprox(getGradient(coeffsMF), [[-1.0, -1.0, 2.0]], atol = 1e-10)
             @test isapprox(getJacobian(coeffsMF), [[-1.0 0.0 0.0; 0.0 -1.0 0.0; 0.0 0.0 2.0]], atol = 1e-10)
         end
@@ -165,6 +166,18 @@ const tmpdir = @get_scratch!("tmp")
             @test isapprox(coeffsMF[1], c1)
             coeffsMF[1:2] = coeffsMF[3:4]
             @test isapprox(coeffsMF[1:2], c2)
+
+            # test iterator
+            for (i,c) in enumerate(coeffsMF)
+                @test coeffsMF[i] == c
+            end
+
+            # test element type
+            @test eltype(coeffsMF) == MagneticFieldCoefficients
+
+            # test hash
+            @test hash(coeffsMF[3:4]) == hash(c2) # same hash
+            @test hash(coeffsMF) !== hash(c1) # different hash
 
             # test errors 
             c3 = MagneticFieldCoefficients(csh[:, 2:2], 0.02, center[:, 2:2], ffp[:, 2:2]) # different radius

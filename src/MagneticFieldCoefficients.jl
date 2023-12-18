@@ -3,7 +3,9 @@ import Base.getindex, Base.setindex!,
     Base.==,
     Base.+, Base.-, Base.*, Base./,
     Base.write,
-    Base.size
+    Base.size, Base.length,
+    Base.iterate, Base.hash,
+    Base.eltype
 
 # Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
@@ -168,8 +170,9 @@ function write(path::String, coeffs::MagneticFieldCoefficients)
     end
 end
 
-# Size
+# Sizes
 size(mfc::MagneticFieldCoefficients, kargs...) = size(mfc.coeffs, kargs...)
+length(mfc::MagneticFieldCoefficients) = size(mfc,2)
 
 # indexing
 getindex(mfc::MagneticFieldCoefficients, i) = 
@@ -196,6 +199,10 @@ function setindex!(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficie
     return nothing
 end
 
+# Iterator
+iterate(mfc::MagneticFieldCoefficients, state = 1) = state <= length(mfc) ? (mfc[state], state + 1) : nothing
+
+eltype(mfc::MagneticFieldCoefficients) = MagneticFieldCoefficients # element type
 
 # Operations on MagneticFieldCoefficients
 function isapprox(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients;
@@ -219,6 +226,15 @@ end
     mfc1.radius == mfc2.radius &&
     mfc1.center == mfc2.center &&
     mfc1.ffp == mfc2.ffp
+
+function hash(mfc::MagneticFieldCoefficients, h::UInt64)
+    h = hash(:MagneticFieldCoefficients, h)
+    h = hash(mfc.coeffs, h)
+    h = hash(mfc.center, h)
+    h = hash(mfc.radius, h)
+    h = hash(mfc.ffp, h)
+    return h
+end
 
 """
     +(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients; force::Bool=false)
@@ -283,7 +299,7 @@ end
 
 Get the offset of the field described by mfc[idx].
 """
-getOffset(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64} = axes(mfc.coeffs, 2)) = [c[0, 0] for c in mfc.coeffs[idx]]
+getOffset(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64} = axes(mfc.coeffs, 2)) = [c[0, 0] for c in mfc.coeffs[:,idx]]
 """
     getGradient(mfc::MagneticFieldCoefficients, idx::AbstractUnitRange{Int64}=axes(mfc.coeffs,2))
 
