@@ -14,12 +14,16 @@ SphericalHarmonicExpansions = "504afa71-bae7-47b4-8ec9-3851161806ac"
 Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
+Aqua = "0.8"
+Artifacts = "1"
 DocStringExtensions = "0.8, 0.9"
 HDF5 = "0.14, 0.15, 0.16, 0.17"
 MPIFiles = "0.12, 0.13, 0.14"
 MPIMagneticFields = "0.0.4, 0.0.5, 0.0.6"
 NLsolve = "4"
+Scratch = "1"
 SphericalHarmonicExpansions = "0.1"
+Test = "1"
 Unitful = "1.11, 1.12"
 julia = "1"
 
