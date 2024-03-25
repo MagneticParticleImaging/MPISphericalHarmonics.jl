@@ -144,7 +144,7 @@ function loadTDesignCoefficients(filename::String)
         coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
     end
 
-    coeffs_MF = MagneticFieldCoefficients(coeffs, radius, center)
+    coeffs_MF = MagneticFieldCoefficients(coeffs, radius, zeros(size(coeffs)))
 
     return coeffs_MF
 end
