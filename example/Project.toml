@@ -1,0 +1,4 @@
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MPISphericalHarmonics = "2527f7a4-0af4-4016-a944-036fbac19de9"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
