@@ -52,7 +52,7 @@ MPIMagneticFields.FieldTimeDependencyStyle(::SphericalHarmonicsDefinedField) =
 
 # get field values
 MPIMagneticFields.value_(field::SphericalHarmonicsDefinedField, r) =
-    [field.func[i, field.patch](r...) for i = 1:3]
+    [field.func[i, field.patch](r) for i = 1:3]
 
 # patches
 length(field::SphericalHarmonicsDefinedField) = size(field.func, 2) # get number of patches
