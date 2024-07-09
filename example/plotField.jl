@@ -55,7 +55,7 @@ quiverRange = -coeffs.radius:0.005:coeffs.radius
 figure(figsize=(12,6))
 for p=1:length(coeffs) # plot both patches
   subplot(1,2,p)
-  selectPatch(field,p) # switch patches
+  setPatch!(field,p) # switch patches
 
   # plot norm
   imshow(norm.(field[plotRange, plotRange, 0]), origin="lower",

@@ -21,7 +21,7 @@ export findFFP, findFFP!
 
 ## SphericalHarmonicsDefinedField ##
 export SphericalHarmonicsDefinedField
-export selectPatch, length
+export setPatch!, getPatch, length
 
 Base.@kwdef mutable struct SphericalHarmonicsDefinedField <: AbstractMagneticField
     func::Array{Union{Function,SphericalHarmonicExpansions.StaticPolynomials.Polynomial},2}
@@ -56,13 +56,20 @@ MPIMagneticFields.value_(field::SphericalHarmonicsDefinedField, r) =
 
 # patches
 length(field::SphericalHarmonicsDefinedField) = size(field.func, 2) # get number of patches
-function selectPatch(field::SphericalHarmonicsDefinedField, patchNum::Int)
-    if 1 <= patchNum <= length(field) # test if patch exists
-        field.patch = patchNum
-    else
-        throw(DimensionMismatch("The field contains only $(length(field)) patches."))
-    end
+function setPatch!(field::SphericalHarmonicsDefinedField, patch::Int) # set patch
+    checkPatch(field, patch) # test if patch exists
+    field.patch = patch # set patch
+
+    return patch
 end
+getPatch(field::SphericalHarmonicsDefinedField) = field.patch # get current patch
 
+# test if patch exists
+function checkPatch(field::SphericalHarmonicsDefinedField, patch::Int)
+    if patch > length(field) || patch < 1 
+        throw(DimensionMismatch("Patch $patch requested, but the field contains only $(length(field)) patches."))
+    end
 
+    return nothing
+end
 end

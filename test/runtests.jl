@@ -362,8 +362,9 @@ const tmpdir = @get_scratch!("tmp")
             @test isapprox(field[ffp...], zeros(3), atol = 1e-10)
 
             # Second patch
-            selectPatch(field, 2)
-            @test field.patch == 2
+            setPatch!(field, 2)
+            @test field.patch == 2 # tests setPatch!
+            @test getPatch(field) == 2 # tests getPatch
             # test offset in (0, 0, 0)
             offset = ones(3) .* 0.01
             @test isapprox(field[0, 0, 0], offset, atol = 1e-10)
@@ -372,7 +373,7 @@ const tmpdir = @get_scratch!("tmp")
             @test isapprox(field[ffp...], zeros(3), atol = 1e-10)
 
             # Test wrong patch number
-            @test_throws DimensionMismatch selectPatch(field, 3)
+            @test_throws DimensionMismatch setPatch!(field, 3)
         end
     end
 
