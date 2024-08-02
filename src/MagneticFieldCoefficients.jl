@@ -5,7 +5,8 @@ import Base.getindex, Base.setindex!,
     Base.write,
     Base.size, Base.length,
     Base.iterate, Base.hash,
-    Base.eltype
+    Base.eltype,
+    Base.hcat
 
 # Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
@@ -203,6 +204,28 @@ end
 iterate(mfc::MagneticFieldCoefficients, state = 1) = state <= length(mfc) ? (mfc[state], state + 1) : nothing
 
 eltype(mfc::MagneticFieldCoefficients) = MagneticFieldCoefficients # element type
+
+# concatenate MagneticFieldCoefficients
+function hcat(mfc::MagneticFieldCoefficients, mfcs::MagneticFieldCoefficients...)
+    # test if all coefficients have the same radius and if either all or none have an FFP
+    radius = mfc.radius
+    ffp_provided = !isnothing(mfc.ffp)
+    for c in mfcs
+        if c.radius != radius
+            throw(DomainError([radius, c.radius], "Coefficients do not have the same measurement radius."))
+        end
+        if (!isnothing(c.ffp)) != ffp_provided
+            throw(DomainError("Either all or none of the coefficients must provide an FFP."))
+        end
+    end
+
+    # concatenate coefficients, center and FFPs
+    coeffs_concat = Base.hcat([c.coeffs for c in (mfc, mfcs...)]...)
+    center_concat = Base.hcat([c.center for c in (mfc, mfcs...)]...)
+    ffp_concat = ffp_provided ? Base.hcat([c.ffp for c in (mfc, mfcs...)]...) : nothing
+
+    return MagneticFieldCoefficients(coeffs_concat, radius, center_concat, ffp_concat)
+end
 
 # Operations on MagneticFieldCoefficients
 function isapprox(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients;
@@ -428,7 +451,7 @@ function shift!(coeffsMF::MagneticFieldCoefficients, v::Matrix{T}) where {T<:Rea
 
     # test dimensions of shifting vector/array
     if size(v, 1) != 3
-        throw(DimensionMismatch("The shifting vector/matrix needs 3 entries but it has $(size(field,1))"))
+        throw(DimensionMismatch("The shifting vector/matrix needs 3 entries but it has $(size(v,1))"))
     elseif size(v, 2) != size(coeffsMF, 2)
         throw(DimensionMismatch("The number of patches do not coincide: $(size(v,2)) != $(size(coeffsMF,2))"))
     end

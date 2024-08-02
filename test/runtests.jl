@@ -154,18 +154,18 @@ const tmpdir = @get_scratch!("tmp")
             center = rand(3, 4)
             ffp = rand(3, 4)
             coeffsMF = MagneticFieldCoefficients(csh, 0.01, center, ffp)
-            c1 = MagneticFieldCoefficients(csh[:, 2:2], 0.01, center[:, 2:2], ffp[:, 2:2])
-            c2 = MagneticFieldCoefficients(csh[:, 3:4], 0.01, center[:, 3:4], ffp[:, 3:4])
+            c1i = MagneticFieldCoefficients(csh[:, 2:2], 0.01, center[:, 2:2], ffp[:, 2:2])
+            c2i = MagneticFieldCoefficients(csh[:, 3:4], 0.01, center[:, 3:4], ffp[:, 3:4])
 
             # test getindex
-            @test isapprox(coeffsMF[2], c1)
-            @test isapprox(coeffsMF[3:4], c2)
+            @test isapprox(coeffsMF[2], c1i)
+            @test isapprox(coeffsMF[3:4], c2i)
 
             # test setindex
             coeffsMF[1] = coeffsMF[2]
-            @test isapprox(coeffsMF[1], c1)
+            @test isapprox(coeffsMF[1], c1i)
             coeffsMF[1:2] = coeffsMF[3:4]
-            @test isapprox(coeffsMF[1:2], c2)
+            @test isapprox(coeffsMF[1:2], c2i)
 
             # test iterator
             for (i,c) in enumerate(coeffsMF)
@@ -176,8 +176,21 @@ const tmpdir = @get_scratch!("tmp")
             @test eltype(coeffsMF) == MagneticFieldCoefficients
 
             # test hash
-            @test hash(coeffsMF[3:4]) == hash(c2) # same hash
-            @test hash(coeffsMF) !== hash(c1) # different hash
+            @test hash(coeffsMF[3:4]) == hash(c2i) # same hash
+            @test hash(coeffsMF) !== hash(c1i) # different hash
+
+            # test hcat
+            ccat = hcat(c1F, c1F2) # coefficients with FFPs
+                @test isapprox(ccat.ffp, [0 1; 0 1; 0 1]) # test FFP
+                @test isapprox(ccat.center, zeros(3,2)) # test center
+                @test isapprox(ccat.radius, 0.042) # test radius
+                @test all(isapprox.(ccat.coeffs, hcat(shc1, shc1))) # test coefficients
+            ccat = hcat(c0, c1, c2) # coefficients without FFPs
+                @test isnothing(ccat.ffp) # test FFP
+                @test length(ccat) == 3 # test number of patches
+            # errors
+                @test_throws DomainError hcat(c1, c1R) # different radius
+                @test_throws DomainError hcat(c1, c1F) # one with FFP, one without FFP
 
             # test errors 
             c3 = MagneticFieldCoefficients(csh[:, 2:2], 0.02, center[:, 2:2], ffp[:, 2:2]) # different radius
@@ -336,7 +349,40 @@ const tmpdir = @get_scratch!("tmp")
             @test_throws DimensionMismatch findFFP(coeffsFFL[3:4], vol=:xz, start=[zeros(3) for i=1:3]) # number of start vectors != numPatches
             @test_logs (:warn,"Volume IBI not defined. Default 3D volume used.")
                     findFFP(coeffsMF, vol = "IBI") # volume not defined
+
+            @testset "Shift Coefficients" begin
+                # shift coeffficients by any vector or matrix
+                coeffsMF2 = hcat(coeffsMF, coeffsMF) # two patches
+                # shift coeffs by vector
+                    shift!(coeffsMF2, [0.1,-0.1,0.1])
+                    @test isapprox(coeffsMF2.center, -[0.1,-0.1,0.1] .* ones(3,2)) # center should be shifted by the negative shift
+                    @test isapprox(getOffset(coeffsMF2), [0.1,0.3,0.4] .* ones(3,2)) # new offset due to shift
+                # shift coeffs by matrix
+                    shift!(coeffsMF2, [-0.2 0.1; -0.2 -0.1; -0.2 0.1])
+                    @test isapprox(coeffsMF2.center, -[-0.1 0.2; -0.3 -0.2; -0.1 0.2]) # center should be shifted
+                    @test isapprox(getOffset(coeffsMF2), [0.3 0.0; 0.5 0.4; 0.0 0.6]) # new offset due to shift
+                # shift coeffs by vector and do not overwrite
+                    coeffsShift = shift(coeffsMF,[0.1,-0.1,0.1])
+                    # test shifted coefficients
+                    @test isapprox(coeffsShift.center, -[0.1,-0.1,0.1]) # center should be shifted
+                    @test isapprox(getOffset(coeffsShift), [0.1,0.3,0.4]) # new offset due to shift
+                    # test original coefficients (no change)
+                    @test isapprox(coeffsMF.center, zeros(3,1)) # center
+                    @test isapprox(getOffset(coeffsMF), 0.2 .* ones(3,1)) # offset
+
+                # shift coefficients into their FFP
+                    coeffsMF.ffp = nothing # remove already calculated FFP
+                    shiftFFP!(coeffsMF) # shift into the FFP including the calculation
+                    @test isapprox(coeffsMF.ffp, [0.0,0.0,0.0]) # FFP should be in the origin
+                    @test isapprox(coeffsMF.center, -[0.2,0.2,-0.1]) # center should be -FFP
+                    @test isapprox(getOffset(coeffsMF), [0.0,0.0,0.0]) # there should be no offset in the FFP
+
+                # test error (shift matrix with wrong size)
+                    @test_throws DimensionMismatch shift!(coeffsMF, [0.1,-0.1]) # wrong length of vector
+                    @test_throws DimensionMismatch shift!(coeffsMF, ones(3,2)) # wrong size of matrix (coeffs have only one patch)
+            end
         end
+
 
         @testset "SphericalHarmonicsDefinedField (multiple patches)" begin
             ## Multi-patch setting: Second field with offset
@@ -346,6 +392,7 @@ const tmpdir = @get_scratch!("tmp")
             end # set offset
             coeffsPatch_MF = MagneticFieldCoefficients(coeffsPatch) # create MagneticFieldCoefficients
             field = SphericalHarmonicsDefinedField(coeffsPatch_MF) # test constructor on coefficients
+            fieldSP = SphericalHarmonicsDefinedField(coeffsPatch_MF[1]) # test constructor on coefficients of a single patch
 
             # Test field types
             @test FieldStyle(field) isa OtherField
@@ -354,6 +401,7 @@ const tmpdir = @get_scratch!("tmp")
 
             # Test number of patches
             @test length(field) == 2
+            @test length(fieldSP) == 1
 
             ## Test FFPs (for both patches)
             # First patch
