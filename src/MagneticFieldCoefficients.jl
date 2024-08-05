@@ -206,25 +206,28 @@ iterate(mfc::MagneticFieldCoefficients, state = 1) = state <= length(mfc) ? (mfc
 eltype(mfc::MagneticFieldCoefficients) = MagneticFieldCoefficients # element type
 
 # concatenate MagneticFieldCoefficients
-function hcat(mfc::MagneticFieldCoefficients, mfcs::MagneticFieldCoefficients...)
+function hcat(mfc::MagneticFieldCoefficients, mfcs::MagneticFieldCoefficients...; force::Bool=false)
     # test if all coefficients have the same radius and if either all or none have an FFP
-    radius = mfc.radius
-    ffp_provided = !isnothing(mfc.ffp)
-    for c in mfcs
-        if c.radius != radius
-            throw(DomainError([radius, c.radius], "Coefficients do not have the same measurement radius."))
-        end
-        if (!isnothing(c.ffp)) != ffp_provided
-            throw(DomainError("Either all or none of the coefficients must provide an FFP."))
-        end
+    validRadius = all(c -> isequal(mfc.radius, c.radius),mfcs) # test if all coefficients have the same radius
+    validFFP = all(c -> isequal(typeof(mfc.ffp),typeof(c.ffp)), mfcs) # test if all coefficients have the same FFP-type (Matrix or Nothing)
+
+    # if concatenation is forced, print a warning, else throw an error
+    if !validRadius && force # coefficients with different radii
+        @warn "Forced concatenation of coefficients with different radii. Radius $(mfc.radius) of first coefficients is used."
+    elseif !validFFP && force # coefficients with and without FFPs
+        @warn "Forced concatenation of coefficients with and without FFPs. FFPs are ignored."
+    elseif !validRadius # coefficients with different radii
+        throw(DomainError("Coefficients do not have the same measurement radius."))
+    elseif !validFFP # coefficients with and without FFPs
+        throw(DomainError("Either all or none of the coefficients must provide an FFP."))
     end
 
     # concatenate coefficients, center and FFPs
     coeffs_concat = Base.hcat([c.coeffs for c in (mfc, mfcs...)]...)
     center_concat = Base.hcat([c.center for c in (mfc, mfcs...)]...)
-    ffp_concat = ffp_provided ? Base.hcat([c.ffp for c in (mfc, mfcs...)]...) : nothing
+    ffp_concat = (!validFFP || isnothing(mfc.ffp)) ? nothing : Base.hcat([c.ffp for c in (mfc, mfcs...)]...)
 
-    return MagneticFieldCoefficients(coeffs_concat, radius, center_concat, ffp_concat)
+    return MagneticFieldCoefficients(coeffs_concat, mfc.radius, center_concat, ffp_concat)
 end
 
 # Operations on MagneticFieldCoefficients

@@ -191,6 +191,13 @@ const tmpdir = @get_scratch!("tmp")
             # errors
                 @test_throws DomainError hcat(c1, c1R) # different radius
                 @test_throws DomainError hcat(c1, c1F) # one with FFP, one without FFP
+            # force concatenation
+            ccat = hcat(c1, c1R, force = true) # different radius
+                @test length(ccat) == 2 # test number of patches
+                @test isapprox(ccat.radius, c1.radius) # radius of first coefficients used
+            ccat = hcat(c1F, c1, force = true) # one with FFP, one without FFP
+                @test isapprox(ccat[2], c1) # test coefficients without FFP
+                @test isnothing(ccat.ffp) # no FFP
 
             # test errors 
             c3 = MagneticFieldCoefficients(csh[:, 2:2], 0.02, center[:, 2:2], ffp[:, 2:2]) # different radius
