@@ -92,10 +92,9 @@ function MagneticFieldCoefficients(path::String)
             # coefficients available    
             return loadCoefficients(path)
 
-        elseif haskey(HDF5.root(file), "/fields") &&
-               haskey(HDF5.root(file), "/positions/tDesign")
+        elseif haskey(HDF5.root(file), "/fields")
             # calculate coefficients
-            return loadTDesignCoefficients(path)
+            return calcTDesignCoefficients(path)
 
         else
             throw(ErrorException("Unknown file structure."))
@@ -127,20 +126,17 @@ function loadCoefficients(path::String)
     return coeffsMF
 end
 
-# load coefficients from measurement data
+# calculate coefficients from measurement data
 # TODO: This should be merged with and moved to MPIFiles
-function loadTDesignCoefficients(filename::String)
-    field, radius, N, t, center, correction = h5open(filename, "r") do file
-        field = read(file, "/fields")   # measured field (size: 3 x #points x #patches)
-        radius = read(file, "/positions/tDesign/radius") # radius of the measured ball
-        N = read(file, "/positions/tDesign/N")           # number of points of the t-design
-        t = read(file, "/positions/tDesign/t")           # t of the t-design
-        center = read(file, "/positions/tDesign/center") # center of the measured ball
-        correction = read(file, "/sensor/correctionTranslation")
-        return field, radius, N, t, center, correction
-    end
+function calcTDesignCoefficients(filename::String)
+    # load the measurement data
+    field, radius, N, t, center, correction = loadMagneticFieldMeasurementData(filename)
+
+    # calculate the coefficients
     tDes = MPIFiles.loadTDesign(Int(t), N, radius * u"m", center .* u"m")
     coeffs = magneticField(tDes, field)
+
+    # apply the correction of the sensors
     for c = 1:size(coeffs, 2), j = 1:3
         coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
     end
@@ -545,7 +541,7 @@ getVolumeIndex(vol::Union{String, Volume}) = getVolumeIndex(Symbol(vol))
 *Description:*  Newton method to find the FFPs of the magnetic fields\\
  \\
 *Input:*
-- `coeffsMF`   - MagneticFieldCoefficients
+- `coeffsMF`   - MagneticFieldCoefficients or Matrix{SphericalHarmonicCoefficients}
 **kwargs:**
 - `vol` - provide the volume where the FFP search should be done\\
             options: $(instances(Volume))\\
@@ -558,14 +554,14 @@ getVolumeIndex(vol::Union{String, Volume}) = getVolumeIndex(Symbol(vol))
 *Output:*
 - `ffp` - FFPs of the magnetic field
 """
-function findFFP(coeffsMF::MagneticFieldCoefficients;  
+function findFFP(coeffs::Matrix{SphericalHarmonicCoefficients};  
                  vol::Union{Symbol, String, Volume} = xyz, 
                  start::Union{Vector{Vector{Float64}},Vector{Float64}} = [[0.0;0.0;0.0]], # start value
                  returnasmatrix::Bool = true)
 
     # get spherical harmonic expansion
     @polyvar x y z
-    expansion = sphericalHarmonicsExpansion.(coeffsMF.coeffs, x, y, z)
+    expansion = sphericalHarmonicsExpansion.(coeffs, x, y, z)
 
     # return all FFPs in a matrix or as array with the solver results
     ffp = returnasmatrix ? zeros(size(expansion)) : Array{NLsolve.SolverResults{Float64}}(undef, size(expansion, 2))
@@ -577,10 +573,10 @@ function findFFP(coeffsMF::MagneticFieldCoefficients;
     if length.(start) != 3 .* ones(length(start))
         throw(DimensionMismatch("Length of start vector needs to be 3, not $(length.(start))."))
     end
-    if length(start) == 1 && size(coeffsMF,2) !== 1
-        start = repeat(start,size(coeffsMF,2))
-    elseif length(start) != size(coeffsMF,2)
-        throw(DimensionMismatch("The numbers of start vectors ($(length(start))) has to be equal to the number of patches ($(size(coeffsMF,2)))."))
+    if length(start) == 1 && size(coeffs,2) !== 1
+        start = repeat(start,size(coeffs,2))
+    elseif length(start) != size(coeffs,2)
+        throw(DimensionMismatch("The numbers of start vectors ($(length(start))) has to be equal to the number of patches ($(size(coeffs,2)))."))
     end
 
     # get index set of the volume
@@ -618,6 +614,8 @@ function findFFP(coeffsMF::MagneticFieldCoefficients;
 
     return ffp
 end
+# MagneticFieldCoefficients as input
+findFFP(coeffsMF::MagneticFieldCoefficients; kargs...) = findFFP(coeffsMF.coeffs; kargs...)
 
 """
     ffp = findFFP!(coeffsMF::MagneticFieldCoefficients)

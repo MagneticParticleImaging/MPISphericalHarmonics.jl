@@ -72,4 +72,7 @@ function checkPatch(field::SphericalHarmonicsDefinedField, patch::Int)
 
     return nothing
 end
+
+# utilty functions
+include("utils.jl")
 end
