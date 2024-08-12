@@ -29,8 +29,8 @@ function loadMagneticFieldMeasurementData(filename::String)
   if haskey(measurementData, "sensor")
     correction =  measurementData["sensor"]["correctionTranslation"]
   else
-    correction = Matrix{Float64}(I, 3, 3)
-    @warn "No correction of the sensor translations found. Using identity matrix."
+    correction = zeros(3,3)
+    @warn "No correction of the sensor translations found."
   end
 
   return field, radius, N, t, center, correction
@@ -55,7 +55,7 @@ function loadMagneticFieldMeasurementDataV2(filename::String)
     tDes = measurementData["positions"]["tDesign"]
       tDes["radius"] = read(file, "/positions/tDesign/radius") # radius of the measured ball
       tDes["N"] = read(file, "/positions/tDesign/N")           # number of points of the t-design
-      tDes["t"] = read(file, "/positions/tDesign/t")           # t of the t-design
+      tDes["t"] = Int(read(file, "/positions/tDesign/t"))           # t of the t-design
       tDes["center"] = read(file, "/positions/tDesign/center") # center of the measured ball
     
     # sensor
@@ -93,7 +93,7 @@ function loadMagneticFieldMeasurementDataV1(filename::String)
       tDes["positions"] = read(file,"positions") 		# measured positions (shifted and scaled t-design)
       tDes["radius"] = read(file, "positionsTDesignRadius") # radius of the measured ball
       tDes["N"] = read(file, "positionsTDesignN")           # number of points of the t-design
-      tDes["t"] = read(file, "positionsTDesignT")           # t of the t-design
+      tDes["t"] = Int(read(file, "positionsTDesignT"))          # t of the t-design
       tDes["center"] = read(file, "positionsCenter") # center of the measured ball
 
     # optional data
