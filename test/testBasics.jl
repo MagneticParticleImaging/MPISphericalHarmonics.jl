@@ -48,6 +48,10 @@ end
   @test coeffsMF.center == zeros(Float64, 3, 1)
   @test isnothing(coeffsMF.ffp)
 
+  # constructor with wrong sizes of the center
+  @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, 0.042, zeros(2, 1))
+  @test_throws DimensionMismatch MagneticFieldCoefficients(coeffs, 0.042, zeros(3, 2))
+
   # constructor with t-design
   coeffsMF = MagneticFieldCoefficients(coeffs, tDes, zeros(Float64, 3, 1))
   @test coeffsMF.radius == 0.042

@@ -12,7 +12,8 @@
       write(file,"/positions/tDesign/N", size(tDes.positions,2))		# number of points of the t-design
       write(file,"/positions/tDesign/t", tDes.T)		# t of the t-design
       write(file,"/positions/tDesign/center", ustrip.(u"m", tDes.center))	# center of the measured ball
-      write(file, "/sensor/correctionTranslation", zeros(3,3)) 
+      write(file, "/sensor/correctionTranslation", zeros(3,3)) # translation of the sensors
+      write(file,"currents",ones(3, 1)) # currents used for the measurement
   end
   # write data (v1)
   h5open(filenameV1, "w") do file
@@ -86,8 +87,14 @@
   coeffsW = nothing # This maybe masks an implementation error
 
   # test error
-  h5write(filenameE, "test", 0)
-  @test_throws ErrorException MagneticFieldCoefficients(filenameE)
+  # test file without any measurement/coefficient data 
+    # (error in MagneticFieldCoefficients(filenameE))
+    h5write(filenameE, "test", 0) 
+    @test_throws ErrorException MagneticFieldCoefficients(filenameE)
+  # test file with field values but nothing else 
+    # (error in loadMagneticFieldMeasurementData(filenameE))
+    h5write(filenameE, "fields", zeros(3,4))
+    @test_throws ErrorException MagneticFieldCoefficients(filenameE)
 
   GC.gc()
 

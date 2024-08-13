@@ -23,14 +23,16 @@ mutable struct MagneticFieldCoefficients
 
         # test sizes of the arrays
         if size(coeffs, 1) != 3
-            throw(DimensionMismatch("The coefficient matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))"))
+            throw(DimensionMismatch("The coefficient matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))."))
+        elseif size(center, 1) != 3
+            throw(DimensionMismatch("The center matrix needs 3 entries (x,y,z) in the first dimension, not $(size(center,1))."))
         elseif size(coeffs, 2) != size(center, 2)
-            throw(DimensionMismatch("The number of patches of the coefficients and center does not match: $(size(coeffs,2)) != $(size(center,2))"))
+            throw(DimensionMismatch("The number of patches of the coefficients and center does not match: $(size(coeffs,2)) != $(size(center,2))."))
         elseif !isnothing(ffp)
             if size(ffp, 1) != 3
-                throw(DimensionMismatch("The FFP matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))"))
+                throw(DimensionMismatch("The FFP matrix needs 3 entries (x,y,z) in the first dimension, not $(size(ffp,1))."))
             elseif size(coeffs, 2) != size(ffp, 2)
-                throw(DimensionMismatch("The number of patches of the coefficients and FFPs does not match: $(size(coeffs,2)) != $(size(ffp,2))"))
+                throw(DimensionMismatch("The number of patches of the coefficients and FFPs does not match: $(size(coeffs,2)) != $(size(ffp,2))."))
             end
         end
 
