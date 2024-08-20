@@ -8,6 +8,7 @@
   # write data (v2)
   h5open(filename, "w") do file
       write(file,"/fields", fieldValues) 		# measured field (size: 3 x #points x #patches)
+      write(file,"/positions/tDesign/positions", tDes.positions) # measured positions (on the unit-sphere)
       write(file,"/positions/tDesign/radius", ustrip(u"m", tDes.radius))	# radius of the measured ball
       write(file,"/positions/tDesign/N", size(tDes.positions,2))		# number of points of the t-design
       write(file,"/positions/tDesign/t", tDes.T)		# t of the t-design

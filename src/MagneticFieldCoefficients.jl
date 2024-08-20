@@ -132,10 +132,9 @@ end
 # TODO: This should be merged with and moved to MPIFiles
 function calcTDesignCoefficients(filename::String)
     # load the measurement data
-    field, radius, N, t, center, correction = loadMagneticFieldMeasurementData(filename)
+    field, tDes, correction = loadMagneticFieldMeasurementData(filename)
 
     # calculate the coefficients
-    tDes = MPIFiles.loadTDesign(Int(t), N, radius * u"m", center .* u"m")
     coeffs = magneticField(tDes, field)
 
     # apply the correction of the sensors
@@ -143,7 +142,7 @@ function calcTDesignCoefficients(filename::String)
         coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
     end
 
-    coeffs_MF = MagneticFieldCoefficients(coeffs, radius, zeros(size(coeffs)))
+    coeffs_MF = MagneticFieldCoefficients(coeffs, ustrip(tDes.radius), zeros(size(coeffs)))
 
     return coeffs_MF
 end

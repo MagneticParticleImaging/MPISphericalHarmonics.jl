@@ -26,6 +26,14 @@ function loadMagneticFieldMeasurementData(filename::String)
     t = tDes["t"]
     center = tDes["center"]
 
+  # load spherical t-design
+  tDes = MPIFiles.loadTDesign(Int(t), N, radius * u"m", center .* u"m")
+  # if measurementData contains positions, use them as t-design positions
+  if haskey(measurementData["positions"]["tDesign"], "positions")
+    tDes.positions = measurementData["positions"]["tDesign"]["positions"]
+  end
+
+  # get optional data
   if haskey(measurementData, "sensor")
     correction =  measurementData["sensor"]["correctionTranslation"]
   else
@@ -33,7 +41,7 @@ function loadMagneticFieldMeasurementData(filename::String)
     @warn "No correction of the sensor translations found."
   end
 
-  return field, radius, N, t, center, correction
+  return field, tDes, correction
 end
 
 """
@@ -57,6 +65,9 @@ function loadMagneticFieldMeasurementDataV2(filename::String)
       tDes["N"] = read(file, "/positions/tDesign/N")           # number of points of the t-design
       tDes["t"] = Int(read(file, "/positions/tDesign/t"))           # t of the t-design
       tDes["center"] = read(file, "/positions/tDesign/center") # center of the measured ball
+      if haskey(file,"positions/tDesign/positions") # optional data
+        tDes["positions"] = read(file, "/positions/tDesign/positions") # measured positions (shifted and scaled t-design)
+      end
     
     # sensor
     measurementData["sensor"] = Dict{String, Any}()
