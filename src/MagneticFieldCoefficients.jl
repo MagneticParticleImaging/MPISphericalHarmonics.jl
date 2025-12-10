@@ -5,7 +5,8 @@ import Base.getindex, Base.setindex!,
     Base.write,
     Base.size, Base.length,
     Base.iterate, Base.hash,
-    Base.eltype
+    Base.eltype,
+    Base.hcat
 
 # Spherical harmonic coefficients describing a magnetic field
 mutable struct MagneticFieldCoefficients
@@ -22,14 +23,16 @@ mutable struct MagneticFieldCoefficients
 
         # test sizes of the arrays
         if size(coeffs, 1) != 3
-            throw(DimensionMismatch("The coefficient matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))"))
+            throw(DimensionMismatch("The coefficient matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))."))
+        elseif size(center, 1) != 3
+            throw(DimensionMismatch("The center matrix needs 3 entries (x,y,z) in the first dimension, not $(size(center,1))."))
         elseif size(coeffs, 2) != size(center, 2)
-            throw(DimensionMismatch("The number of patches of the coefficients and center does not match: $(size(coeffs,2)) != $(size(center,2))"))
+            throw(DimensionMismatch("The number of patches of the coefficients and center does not match: $(size(coeffs,2)) != $(size(center,2))."))
         elseif !isnothing(ffp)
             if size(ffp, 1) != 3
-                throw(DimensionMismatch("The FFP matrix needs 3 entries (x,y,z) in the first dimension, not $(size(coeffs,1))"))
+                throw(DimensionMismatch("The FFP matrix needs 3 entries (x,y,z) in the first dimension, not $(size(ffp,1))."))
             elseif size(coeffs, 2) != size(ffp, 2)
-                throw(DimensionMismatch("The number of patches of the coefficients and FFPs does not match: $(size(coeffs,2)) != $(size(ffp,2))"))
+                throw(DimensionMismatch("The number of patches of the coefficients and FFPs does not match: $(size(coeffs,2)) != $(size(ffp,2))."))
             end
         end
 
@@ -91,10 +94,9 @@ function MagneticFieldCoefficients(path::String)
             # coefficients available    
             return loadCoefficients(path)
 
-        elseif haskey(HDF5.root(file), "/fields") &&
-               haskey(HDF5.root(file), "/positions/tDesign")
+        elseif haskey(HDF5.root(file), "/fields")
             # calculate coefficients
-            return loadTDesignCoefficients(path)
+            return calcTDesignCoefficients(path)
 
         else
             throw(ErrorException("Unknown file structure."))
@@ -126,25 +128,21 @@ function loadCoefficients(path::String)
     return coeffsMF
 end
 
-# load coefficients from measurement data
+# calculate coefficients from measurement data
 # TODO: This should be merged with and moved to MPIFiles
-function loadTDesignCoefficients(filename::String)
-    field, radius, N, t, center, correction = h5open(filename, "r") do file
-        field = read(file, "/fields")   # measured field (size: 3 x #points x #patches)
-        radius = read(file, "/positions/tDesign/radius") # radius of the measured ball
-        N = read(file, "/positions/tDesign/N")           # number of points of the t-design
-        t = read(file, "/positions/tDesign/t")           # t of the t-design
-        center = read(file, "/positions/tDesign/center") # center of the measured ball
-        correction = read(file, "/sensor/correctionTranslation")
-        return field, radius, N, t, center, correction
-    end
-    tDes = MPIFiles.loadTDesign(Int(t), N, radius * u"m", center .* u"m")
+function calcTDesignCoefficients(filename::String)
+    # load the measurement data
+    field, tDes, correction = loadMagneticFieldMeasurementData(filename)
+
+    # calculate the coefficients
     coeffs = magneticField(tDes, field)
+
+    # apply the correction of the sensors
     for c = 1:size(coeffs, 2), j = 1:3
         coeffs[j, c] = SphericalHarmonicExpansions.translation(coeffs[j, c], correction[:, j])
     end
 
-    coeffs_MF = MagneticFieldCoefficients(coeffs, radius, zeros(size(coeffs)))
+    coeffs_MF = MagneticFieldCoefficients(coeffs, ustrip(tDes.radius), zeros(size(coeffs)))
 
     return coeffs_MF
 end
@@ -203,6 +201,31 @@ end
 iterate(mfc::MagneticFieldCoefficients, state = 1) = state <= length(mfc) ? (mfc[state], state + 1) : nothing
 
 eltype(mfc::MagneticFieldCoefficients) = MagneticFieldCoefficients # element type
+
+# concatenate MagneticFieldCoefficients
+function hcat(mfc::MagneticFieldCoefficients, mfcs::MagneticFieldCoefficients...; force::Bool=false)
+    # test if all coefficients have the same radius and if either all or none have an FFP
+    validRadius = all(c -> isequal(mfc.radius, c.radius),mfcs) # test if all coefficients have the same radius
+    validFFP = all(c -> isequal(typeof(mfc.ffp),typeof(c.ffp)), mfcs) # test if all coefficients have the same FFP-type (Matrix or Nothing)
+
+    # if concatenation is forced, print a warning, else throw an error
+    if !validRadius && force # coefficients with different radii
+        @warn "Forced concatenation of coefficients with different radii. Radius $(mfc.radius) of first coefficients is used."
+    elseif !validFFP && force # coefficients with and without FFPs
+        @warn "Forced concatenation of coefficients with and without FFPs. FFPs are ignored."
+    elseif !validRadius # coefficients with different radii
+        throw(DomainError("Coefficients do not have the same measurement radius."))
+    elseif !validFFP # coefficients with and without FFPs
+        throw(DomainError("Either all or none of the coefficients must provide an FFP."))
+    end
+
+    # concatenate coefficients, center and FFPs
+    coeffs_concat = Base.hcat([c.coeffs for c in (mfc, mfcs...)]...)
+    center_concat = Base.hcat([c.center for c in (mfc, mfcs...)]...)
+    ffp_concat = (!validFFP || isnothing(mfc.ffp)) ? nothing : Base.hcat([c.ffp for c in (mfc, mfcs...)]...)
+
+    return MagneticFieldCoefficients(coeffs_concat, mfc.radius, center_concat, ffp_concat)
+end
 
 # Operations on MagneticFieldCoefficients
 function isapprox(mfc1::MagneticFieldCoefficients, mfc2::MagneticFieldCoefficients;
@@ -428,7 +451,7 @@ function shift!(coeffsMF::MagneticFieldCoefficients, v::Matrix{T}) where {T<:Rea
 
     # test dimensions of shifting vector/array
     if size(v, 1) != 3
-        throw(DimensionMismatch("The shifting vector/matrix needs 3 entries but it has $(size(field,1))"))
+        throw(DimensionMismatch("The shifting vector/matrix needs 3 entries but it has $(size(v,1))"))
     elseif size(v, 2) != size(coeffsMF, 2)
         throw(DimensionMismatch("The number of patches do not coincide: $(size(v,2)) != $(size(coeffsMF,2))"))
     end
@@ -519,7 +542,7 @@ getVolumeIndex(vol::Union{String, Volume}) = getVolumeIndex(Symbol(vol))
 *Description:*  Newton method to find the FFPs of the magnetic fields\\
  \\
 *Input:*
-- `coeffsMF`   - MagneticFieldCoefficients
+- `coeffsMF`   - MagneticFieldCoefficients or Matrix{SphericalHarmonicCoefficients}
 **kwargs:**
 - `vol` - provide the volume where the FFP search should be done\\
             options: $(instances(Volume))\\
@@ -532,14 +555,14 @@ getVolumeIndex(vol::Union{String, Volume}) = getVolumeIndex(Symbol(vol))
 *Output:*
 - `ffp` - FFPs of the magnetic field
 """
-function findFFP(coeffsMF::MagneticFieldCoefficients;  
+function findFFP(coeffs::Matrix{SphericalHarmonicCoefficients};  
                  vol::Union{Symbol, String, Volume} = xyz, 
                  start::Union{Vector{Vector{Float64}},Vector{Float64}} = [[0.0;0.0;0.0]], # start value
                  returnasmatrix::Bool = true)
 
     # get spherical harmonic expansion
     @polyvar x y z
-    expansion = sphericalHarmonicsExpansion.(coeffsMF.coeffs, x, y, z)
+    expansion = sphericalHarmonicsExpansion.(coeffs, x, y, z)
 
     # return all FFPs in a matrix or as array with the solver results
     ffp = returnasmatrix ? zeros(size(expansion)) : Array{NLsolve.SolverResults{Float64}}(undef, size(expansion, 2))
@@ -551,10 +574,10 @@ function findFFP(coeffsMF::MagneticFieldCoefficients;
     if length.(start) != 3 .* ones(length(start))
         throw(DimensionMismatch("Length of start vector needs to be 3, not $(length.(start))."))
     end
-    if length(start) == 1 && size(coeffsMF,2) !== 1
-        start = repeat(start,size(coeffsMF,2))
-    elseif length(start) != size(coeffsMF,2)
-        throw(DimensionMismatch("The numbers of start vectors ($(length(start))) has to be equal to the number of patches ($(size(coeffsMF,2)))."))
+    if length(start) == 1 && size(coeffs,2) !== 1
+        start = repeat(start,size(coeffs,2))
+    elseif length(start) != size(coeffs,2)
+        throw(DimensionMismatch("The numbers of start vectors ($(length(start))) has to be equal to the number of patches ($(size(coeffs,2)))."))
     end
 
     # get index set of the volume
@@ -592,6 +615,8 @@ function findFFP(coeffsMF::MagneticFieldCoefficients;
 
     return ffp
 end
+# MagneticFieldCoefficients as input
+findFFP(coeffsMF::MagneticFieldCoefficients; kargs...) = findFFP(coeffsMF.coeffs; kargs...)
 
 """
     ffp = findFFP!(coeffsMF::MagneticFieldCoefficients)

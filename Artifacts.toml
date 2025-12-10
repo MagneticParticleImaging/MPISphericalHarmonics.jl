@@ -1,6 +1,0 @@
-[testData]
-git-tree-sha1 = "c95593d075d35d1e612fd8cc61e4fe2762a4acf6"
-
-    [[testData.download]]
-    sha256 = "dd3d78a99d77a5cf8c4575637ee481010d8062e4d90a1358cfda85e6570cc973"
-    url = "https://gist.github.com/jonschumacher/8e6ff8e2245f9820412864af7d3708e4/raw/0b86feae2df3679403e813226d46395e9d5f5bad.tar.gz"
