@@ -8,11 +8,11 @@
   # write data (v2)
   h5open(filename, "w") do file
       write(file,"/fields", fieldValues) 		# measured field (size: 3 x #points x #patches)
-      write(file,"/positions/tDesign/positions", tDes.positions) # measured positions (on the unit-sphere)
+      write(file,"/positions/tDesign/positions", Array(tDes.positions)) # measured positions (on the unit-sphere)
       write(file,"/positions/tDesign/radius", ustrip(u"m", tDes.radius))	# radius of the measured ball
       write(file,"/positions/tDesign/N", size(tDes.positions,2))		# number of points of the t-design
       write(file,"/positions/tDesign/t", tDes.T)		# t of the t-design
-      write(file,"/positions/tDesign/center", ustrip.(u"m", tDes.center))	# center of the measured ball
+      write(file,"/positions/tDesign/center", ustrip.(u"m", Array(tDes.center)))	# center of the measured ball
       write(file, "/sensor/correctionTranslation", zeros(3,3)) # translation of the sensors
       write(file,"currents",ones(3, 1)) # currents used for the measurement
   end
@@ -20,11 +20,11 @@
   h5open(filenameV1, "w") do file
       write(file,"fields", fieldValues) 		# measured field (size: 3 x #points x #patches)
       write(file,"fieldsError", zeros(Float64, size(fieldValues))) # error of the measured field
-      write(file,"positions", tDes.positions)	# measured positions
+      write(file,"positions", Array(tDes.positions))	# measured positions
       write(file,"positionsTDesignRadius", ustrip(u"m", tDes.radius))	# radius of the measured ball
       write(file,"positionsTDesignN", size(tDes.positions,2))		# number of points of the t-design
       write(file,"positionsTDesignT", tDes.T)		# t of the t-design
-      write(file,"positionsCenter", ustrip.(u"m", tDes.center))	# center of the measured ball
+      write(file,"positionsCenter", ustrip.(u"m", Array(tDes.center)))	# center of the measured ball
       write(file,"currents",ones(3, 1)) # currents used for the measurement
   end
 
