@@ -30,7 +30,9 @@ function loadMagneticFieldMeasurementData(filename::String)
   tDes = MPIFiles.loadTDesign(Int(t), N, radius * u"m", center .* u"m")
   # if measurementData contains positions, use them as t-design positions
   if haskey(measurementData["positions"]["tDesign"], "positions")
-    tDes.positions = measurementData["positions"]["tDesign"]["positions"]
+    positions = measurementData["positions"]["tDesign"]["positions"]
+    # Change positions typed based on existing pos type
+    tDes = SphericalTDesign(tDes.T,tDes.radius, typeof(tDes.positions)(positions), tDes.center)
   end
 
   # get optional data

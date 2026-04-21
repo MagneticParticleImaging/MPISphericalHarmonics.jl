@@ -81,6 +81,13 @@ function MagneticFieldCoefficients(
         center)
 end
 
+# convert other AbstractArray types to Array
+MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2},radius::Float64,center::AbstractArray{Float64},ffp) =
+    MagneticFieldCoefficients(coeffs, radius, Array(center), ffp)
+MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2},radius::Float64,center::Array{Float64},ffp::AbstractArray{Float64,2}) =
+    MagneticFieldCoefficients(coeffs, radius, center, Array(ffp))
+
+
 # constructor using t-design
 MagneticFieldCoefficients(coeffs::Array{SphericalHarmonicCoefficients,2}, tDesign::SphericalTDesign, ffp = nothing) = 
     MagneticFieldCoefficients(coeffs, ustrip(Unitful.m(tDesign.radius)), ustrip.(Unitful.m.(tDesign.center)), ffp)
@@ -407,7 +414,7 @@ function magneticField(
                 coords::AbstractArray{T,2},
                 field::Union{AbstractArray{T,2},AbstractArray{T,3}},
                 R::T,
-                center::Vector{T},
+                center::AbstractVector{T},
                 L::Int,
                 calcSolid::Bool = true) where {T<:Real}
 
